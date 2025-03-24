@@ -1,0 +1,25 @@
+{
+  "name": "@shinzolabs/hubspot-mcp",
+  "version": "1.2.2",
+  "type": "module",
+  "description": "A complete MCP for the HubSpot API",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "bin": {
+    "hubspot-mcp": "./index.js"
+  },
+  "keywords": [
+    "mcp",
+    "hubspot",
+    "crm",
+    "api"
+  ],
+  "author": "Austin Born (austin@shinzolabs.com)",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.22.4"
+  }
+}
