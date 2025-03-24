@@ -1,5 +1,6 @@
 # HubSpot MCP
 
+[![npm version](https://badge.fury.io/js/@shinzolabs%2Fhubspot-mcp.svg)](https://badge.fury.io/js/@shinzolabs%2Fhubspot-mcp)
 [![smithery badge](https://smithery.ai/badge/@shinzo-labs/hubspot-mcp)](https://smithery.ai/server/@shinzo-labs/hubspot-mcp)
 
 A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) implementation for the [HubSpot](https://hubspot.com/) API, providing a standardized interface for accessing and managing CRM data.

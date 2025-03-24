@@ -6,8 +6,8 @@ import { z } from "zod"
 
 const server = new McpServer({
   name: "HubSpot-MCP",
-  version: "1.0.0",
-  description: "A complete MCP for the HubSpot API"
+  version: "1.2.3",
+  description: "An extensive MCP for the HubSpot API"
 })
 
 // Unified response formatter for both success and error responses
