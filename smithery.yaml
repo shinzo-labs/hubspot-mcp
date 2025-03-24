@@ -1,0 +1,16 @@
+# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
+
+startCommand:
+  type: stdio
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    type: object
+    properties: {}
+    description: This MCP server for HubSpot does not require any configuration
+      parameters. It uses the HUBSPOT_ACCESS_TOKEN environment variable for
+      authentication, which should be provided at runtime.
+  commandFunction:
+    # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
+    |-
+    (config) => ({ command: 'npm', args: ['start'], env: { HUBSPOT_ACCESS_TOKEN: process.env.HUBSPOT_ACCESS_TOKEN || 'your-key-here' } })
+  exampleConfig: {}
