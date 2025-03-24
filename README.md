@@ -1,5 +1,7 @@
 # HubSpot MCP
 
+[![smithery badge](https://smithery.ai/badge/@shinzo-labs/hubspot-mcp)](https://smithery.ai/server/@shinzo-labs/hubspot-mcp)
+
 A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) implementation for the [HubSpot](https://hubspot.com/) API, providing a standardized interface for accessing and managing CRM data.
 
 ## Features
@@ -13,7 +15,6 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) i
 - Type-safe parameter validation with [Zod](https://zod.dev/)
 
 ## Installation
-
 If you don't have an API key, follow the steps [here](https://developers.hubspot.com/docs/guides/api/overview) to obtain an access token.
 
 ### NPX (Recommended)
@@ -42,7 +43,7 @@ Add the following to your `claude_desktop_config.json`:
 git clone https://github.com/shinzo-labs/hubspot-mcp.git
 ```
 
-2. Install packages:
+2. Install packages (inside cloned repo):
 ```bash
 pnpm i
 ```
@@ -57,7 +58,7 @@ pnpm i
         "/path/to/hubspot-mcp/index.js"
       ],
       "env": {
-        "HUBSPOT_ACCESS_TOKEN": "your-key-here"
+        "HUBSPOT_ACCESS_TOKEN": "your-token-here"
       }
     }
   }
