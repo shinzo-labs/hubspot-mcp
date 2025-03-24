@@ -1,4 +1,5 @@
 # HubSpot MCP
+[![smithery badge](https://smithery.ai/badge/@shinzo-labs/hubspot-mcp)](https://smithery.ai/server/@shinzo-labs/hubspot-mcp)
 
 A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) implementation for the [HubSpot](https://hubspot.com/) API, providing a standardized interface for accessing and managing CRM data.
 
@@ -13,7 +14,6 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) i
 - Type-safe parameter validation with [Zod](https://zod.dev/)
 
 ## Installation
-
 If you don't have an API key, follow the steps [here](https://developers.hubspot.com/docs/guides/api/overview) to obtain an access token.
 
 ### NPX (Recommended)
