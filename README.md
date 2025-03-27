@@ -1,5 +1,9 @@
 # HubSpot MCP
 
+<div style="background-color: #ff4d4d; color: white; padding: 15px; margin: 20px 0; border-radius: 5px; font-size: 18px; text-align: center;">
+⚠️ <strong>WARNING:</strong> This server is experimental and functionality is not guaranteed. Please use at your own risk.
+</div>
+
 [![npm version](https://badge.fury.io/js/@shinzolabs%2Fhubspot-mcp.svg)](https://badge.fury.io/js/@shinzolabs%2Fhubspot-mcp)
 [![smithery badge](https://smithery.ai/badge/@shinzo-labs/hubspot-mcp)](https://smithery.ai/server/@shinzo-labs/hubspot-mcp)
 
@@ -74,11 +78,11 @@ To install for Claude Desktop automatically via [Smithery](https://smithery.ai/s
 npx -y @smithery/cli install @shinzo-labs/hubspot-mcp --client claude
 ```
 
-## Supported Endpoints
+## API Operations
 
-### CRM Object Operations
+### Core CRM Objects
 
-#### Basic Operations
+#### Basic Object Operations
 - `crm_list_objects`: List CRM objects with optional filtering and pagination
 - `crm_get_object`: Get a single CRM object by ID
 - `crm_create_object`: Create a new CRM object
@@ -91,59 +95,151 @@ npx -y @smithery/cli install @shinzo-labs/hubspot-mcp --client claude
 - `crm_batch_update_objects`: Update multiple objects in a single request
 - `crm_batch_delete_objects`: Delete multiple objects in a single request
 
-### CRM Associations v4
+### CRM Records Management
 
-#### Association Management
-- `crm_list_association_types`: List available association types between object types
-- `crm_get_associations`: Get all associations between objects
-- `crm_create_association`: Create an association between two objects
-- `crm_delete_association`: Delete an association between two objects
+#### Companies
+- Basic Operations:
+  - `crm_create_company`: Create a new company with validated properties
+  - `crm_update_company`: Update an existing company
+  - `crm_get_company`: Get a single company by ID
+  - `crm_search_companies`: Search companies with specific filters
+- Batch Operations:
+  - `crm_batch_create_companies`: Create multiple companies in a single request
+  - `crm_batch_update_companies`: Update multiple companies in a single request
+- Property Management:
+  - `crm_get_company_properties`: Get all available company properties
+  - `crm_create_company_property`: Create a new company property
 
-#### Batch Association Operations
-- `crm_batch_create_associations`: Create multiple associations in a single request
-- `crm_batch_delete_associations`: Delete multiple associations in a single request
+#### Contacts
+- Basic Operations:
+  - `crm_create_contact`: Create a new contact with validated properties
+  - `crm_update_contact`: Update an existing contact's information
+  - `crm_get_contact`: Get a single contact by ID
+  - `crm_search_contacts`: Search contacts with specific filters
+- Batch Operations:
+  - `crm_batch_create_contacts`: Create multiple contacts in a single request
+  - `crm_batch_update_contacts`: Update multiple contacts in a single request
+- Property Management:
+  - `crm_get_contact_properties`: Get all available contact properties
+  - `crm_create_contact_property`: Create a new contact property
 
-### Company Operations
+#### Leads
+- Basic Operations:
+  - `crm_create_lead`: Create a new lead with validated properties
+  - `crm_update_lead`: Update an existing lead's information
+  - `crm_get_lead`: Get a single lead by ID
+  - `crm_search_leads`: Search leads with specific filters
+- Batch Operations:
+  - `crm_batch_create_leads`: Create multiple leads in a single request
+  - `crm_batch_update_leads`: Update multiple leads in a single request
+- Property Management:
+  - `crm_get_lead_properties`: Get all available lead properties
+  - `crm_create_lead_property`: Create a new lead property
 
-#### Basic Company Operations
-- `crm_create_company`: Create a new company with validated properties
-- `crm_update_company`: Update an existing company
-- `crm_get_company`: Get a single company by ID
-- `crm_search_companies`: Search companies with specific filters
+### Engagement Management
 
-#### Batch Company Operations
-- `crm_batch_create_companies`: Create multiple companies in a single request
-- `crm_batch_update_companies`: Update multiple companies in a single request
+#### Engagement Details
+- Basic Operations:
+  - `engagement_details_get`: Get details of a specific engagement
+  - `engagement_details_create`: Create a new engagement
+  - `engagement_details_update`: Update an existing engagement
+  - `engagement_details_delete`: Delete an engagement
+  - `engagement_details_list`: List all engagements with filtering
+  - `engagement_details_get_associated`: Get associated engagements
 
-#### Company Property Management
-- `crm_get_company_properties`: Get all available company properties
-- `crm_create_company_property`: Create a new company property
+#### Calls
+- Basic Operations:
+  - `calls_create`: Create a new call record
+  - `calls_get`: Get call details
+  - `calls_update`: Update a call record
+  - `calls_archive`: Archive a call
+  - `calls_list`: List all calls
+  - `calls_search`: Search calls
+- Batch Operations:
+  - `calls_batch_create`: Create multiple calls
+  - `calls_batch_read`: Read multiple calls
+  - `calls_batch_update`: Update multiple calls
+  - `calls_batch_archive`: Archive multiple calls
 
-### Contact Operations
+#### Emails
+- Basic Operations:
+  - `emails_create`: Create a new email record
+  - `emails_get`: Get email details
+  - `emails_update`: Update an email
+  - `emails_archive`: Archive an email
+  - `emails_list`: List all emails
+  - `emails_search`: Search emails
+- Batch Operations:
+  - `emails_batch_create`: Create multiple emails
+  - `emails_batch_read`: Read multiple emails
+  - `emails_batch_update`: Update multiple emails
+  - `emails_batch_archive`: Archive multiple emails
 
-#### Basic Contact Operations
-- `crm_create_contact`: Create a new contact with validated properties (email, name, phone, etc.)
-- `crm_update_contact`: Update an existing contact's information
-- `crm_get_contact`: Get a single contact by ID with optional properties and associations
-- `crm_search_contacts`: Search contacts with specific filters
+#### Meetings
+- Basic Operations:
+  - `meetings_create`: Create a new meeting
+  - `meetings_get`: Get meeting details
+  - `meetings_update`: Update a meeting
+  - `meetings_delete`: Delete a meeting
+  - `meetings_list`: List all meetings
+  - `meetings_search`: Search meetings
+- Batch Operations:
+  - `meetings_batch_create`: Create multiple meetings
+  - `meetings_batch_update`: Update multiple meetings
+  - `meetings_batch_archive`: Archive multiple meetings
 
-#### Batch Contact Operations
-- `crm_batch_create_contacts`: Create multiple contacts in a single request
-- `crm_batch_update_contacts`: Update multiple contacts in a single request
+#### Notes
+- Basic Operations:
+  - `notes_create`: Create a new note
+  - `notes_get`: Get note details
+  - `notes_update`: Update a note
+  - `notes_archive`: Archive a note
+  - `notes_list`: List all notes
+  - `notes_search`: Search notes
+- Batch Operations:
+  - `notes_batch_create`: Create multiple notes
+  - `notes_batch_read`: Read multiple notes
+  - `notes_batch_update`: Update multiple notes
+  - `notes_batch_archive`: Archive multiple notes
 
-#### Contact Property Management
-- `crm_get_contact_properties`: Get all available contact properties
-- `crm_create_contact_property`: Create a new contact property
+#### Tasks
+- Basic Operations:
+  - `tasks_create`: Create a new task
+  - `tasks_get`: Get task details
+  - `tasks_update`: Update a task
+  - `tasks_archive`: Archive a task
+  - `tasks_list`: List all tasks
+  - `tasks_search`: Search tasks
+- Batch Operations:
+  - `tasks_batch_create`: Create multiple tasks
+  - `tasks_batch_read`: Read multiple tasks
+  - `tasks_batch_update`: Update multiple tasks
+  - `tasks_batch_archive`: Archive multiple tasks
 
-### Supported Object Types
-- Companies
-- Contacts
-- Deals
-- Tickets
-- Products
-- Line Items
-- Quotes
-- Custom Objects
+### Associations and Relationships
+
+#### CRM Associations v4
+- Basic Operations:
+  - `crm_list_association_types`: List available association types
+  - `crm_get_associations`: Get all associations between objects
+  - `crm_create_association`: Create an association
+  - `crm_delete_association`: Delete an association
+- Batch Operations:
+  - `crm_batch_create_associations`: Create multiple associations
+  - `crm_batch_delete_associations`: Delete multiple associations
+
+### Communication Preferences
+
+#### Subscription Management
+- Basic Operations:
+  - `communications_get_preferences`: Get contact preferences
+  - `communications_update_preferences`: Update contact preferences
+  - `communications_unsubscribe_contact`: Global unsubscribe
+  - `communications_subscribe_contact`: Global subscribe
+  - `communications_get_subscription_definitions`: Get subscription definitions
+- Bulk Operations:
+  - `communications_get_subscription_status`: Get status for multiple contacts
+  - `communications_update_subscription_status`: Update status for multiple contacts
 
 ## Contributing
 

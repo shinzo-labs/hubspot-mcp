@@ -5,11 +5,24 @@ startCommand:
   configSchema:
     # JSON Schema defining the configuration options for the MCP.
     type: object
-    properties: {}
+    required:
+      - hubsSpotAccessToken
+    properties: {
+      hubsSpotAccessToken:
+        type: string
+        description: The HubSpot API access token
+    }
     description: This MCP server uses the HUBSPOT_ACCESS_TOKEN environment 
       variable for authentication, which should be provided at runtime.
   commandFunction:
     # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
     |-
-    (config) => ({ command: 'npm', args: ['start'], env: { HUBSPOT_ACCESS_TOKEN: process.env.HUBSPOT_ACCESS_TOKEN || 'your-token-here' } })
-  exampleConfig: {}
+    (config) => ({
+      command: 'node',
+      args: ['index.js'],
+      env: {
+        HUBSPOT_ACCESS_TOKEN: config.hubsSpotAccessToken
+      }
+    })
+  exampleConfig:
+    hubsSpotAccessToken: your-token-here
