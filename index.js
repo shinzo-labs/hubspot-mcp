@@ -6,7 +6,7 @@ import { z } from "zod"
 
 const server = new McpServer({
   name: "HubSpot-MCP",
-  version: "1.3.0",
+  version: "1.3.1",
   description: "An extensive MCP for the HubSpot API"
 })
 
