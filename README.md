@@ -16,11 +16,14 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) i
 - Type-safe parameter validation with [Zod](https://zod.dev/)
 
 ## Installation
+
+⚠️ <strong>NOTE:</strong> Due to the large number of endpoints available on this server, it is recommended that you install and setup [Heimdall](https://github.com/shinzo-labs/heimdall) to limit the number of endpoints exposed to your client applications.
+
 If you don't have an API key, follow the steps [here](https://developers.hubspot.com/docs/guides/api/overview) to obtain an access token.
 
 ### NPX (Recommended)
 
-Add the following to your `claude_desktop_config.json`:
+Add the following to your MCP client `config.json` (`~/.heimdall/config.json` if using Heimdall):
 ```javascript
 {
   "mcpServers": {
@@ -49,7 +52,7 @@ git clone https://github.com/shinzo-labs/hubspot-mcp.git
 pnpm i
 ```
 
-3. Add the following to your `claude_desktop_config.json`:
+3. Add the following to your MCP client `config.json` (`~/.heimdall/config.json` if using Heimdall):
 ```javascript
 {
   "mcpServers": {
