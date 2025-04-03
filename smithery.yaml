@@ -6,7 +6,7 @@ startCommand:
     # JSON Schema defining the configuration options for the MCP.
     type: object
     required:
-      - hubsSpotAccessToken
+      - HUBSPOT_ACCESS_TOKEN
     properties: {
       hubsSpotAccessToken:
         type: string
@@ -21,8 +21,8 @@ startCommand:
       command: 'node',
       args: ['index.js'],
       env: {
-        HUBSPOT_ACCESS_TOKEN: config.hubsSpotAccessToken
+        HUBSPOT_ACCESS_TOKEN: config.HUBSPOT_ACCESS_TOKEN
       }
     })
   exampleConfig:
-    hubsSpotAccessToken: your-token-here
+    HUBSPOT_ACCESS_TOKEN: your-token-here
