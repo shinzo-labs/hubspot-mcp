@@ -15,15 +15,31 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) i
 - Advanced search and filtering capabilities
 - Type-safe parameter validation with [Zod](https://zod.dev/)
 
-## Installation
+## Prerequisites
 
-⚠️ <strong>NOTE:</strong> Due to the large number of endpoints available on this server, it is recommended that you install and setup [Heimdall](https://github.com/shinzo-labs/heimdall) to limit the number of endpoints exposed to your client applications.
+If you don't have an API key, follow the steps [here](https://developers.hubspot.com/docs/guides/api/overview) to obtain an access token. OAuth support is planned as a future enhancement.
 
-If you don't have an API key, follow the steps [here](https://developers.hubspot.com/docs/guides/api/overview) to obtain an access token.
+## Client Configuration
 
-### NPX (Recommended)
+There are several options to configure your MCP client with the server. For hosted/remote server setup, use Smithery's CLI with a [Smithery API Key](https://smithery.ai/docs/registry#registry-api). For local installation, use `npx` or build from source. Each of these options is explained below.
 
-Add the following to your MCP client `config.json` (`~/.heimdall/config.json` if using Heimdall):
+### Smithery Remote Server (Recommended)
+
+To add a remote server to your MCP client `config.json`, run the following command from [Smithery CLI](https://github.com/smithery-ai/cli?tab=readme-ov-file#smithery-cli--):
+
+```bash
+npx -y @smithery/cli install @shinzo-labs/hubspot-mcp
+```
+
+Enter your `HUBSPOT_ACCESS_TOKEN` when prompted.
+
+### Smithery SDK
+
+If you are developing your own agent application, you can use the boilerplate code [here](https://smithery.ai/server/@shinzo-labs/hubspot-mcp/api).
+
+### NPX Local Install
+
+To install the server locally with `npx`, add the following to your MCP client `config.json`:
 ```javascript
 {
   "mcpServers": {
@@ -33,51 +49,49 @@ Add the following to your MCP client `config.json` (`~/.heimdall/config.json` if
         "@shinzolabs/hubspot-mcp"
       ],
       "env": {
-        "HUBSPOT_ACCESS_TOKEN": "your-token-here"
+        "HUBSPOT_ACCESS_TOKEN": "your-access-token-here"
       }
     }
   }
 }
 ```
 
-### Manual Download
+### Build from Source
 
 1. Download the repo:
 ```bash
 git clone https://github.com/shinzo-labs/hubspot-mcp.git
 ```
 
-2. Install packages (inside cloned repo):
+2. Install packages and build with `pnpm` (inside cloned repo):
 ```bash
-pnpm i
+pnpm i && pnpm build
 ```
 
-3. Add the following to your MCP client `config.json` (`~/.heimdall/config.json` if using Heimdall):
+3. Add the following to your MCP client `config.json`:
 ```javascript
 {
   "mcpServers": {
     "hubspot": {
       "command": "node",
       "args": [
-        "/path/to/hubspot-mcp/index.js"
+        "/path/to/hubspot-mcp/dist/index.js"
       ],
       "env": {
-        "HUBSPOT_ACCESS_TOKEN": "your-token-here"
+        "HUBSPOT_ACCESS_TOKEN": "your-access-token-here"
       }
     }
   }
 }
 ```
 
-### Smithery
+## Config Variables
 
-To install for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@shinzo-labs/hubspot-mcp):
+| Variable               | Description                          | Required? |
+|------------------------|--------------------------------------|-----------|
+| `HUBSPOT_ACCESS_TOKEN` | Access Token for Hubspot Application | Yes       |
 
-```bash
-npx -y @smithery/cli install @shinzo-labs/hubspot-mcp --client claude
-```
-
-## API Operations
+## Supported Tools
 
 ### Core CRM Objects
 
@@ -242,4 +256,4 @@ npx -y @smithery/cli install @shinzo-labs/hubspot-mcp --client claude
 
 ## Contributing
 
-Contributions are welcomed and encouraged. Contact austin@shinzolabs.com with any questions, comments or concerns.
+Contributions are welcomed and encouraged! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines on issues, contributions, and contact information.
