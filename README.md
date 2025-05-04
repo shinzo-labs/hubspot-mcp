@@ -63,9 +63,9 @@ To install the server locally with `npx`, add the following to your MCP client `
 git clone https://github.com/shinzo-labs/hubspot-mcp.git
 ```
 
-2. Install packages and build with `pnpm` (inside cloned repo):
+2. Install packages (inside cloned repo):
 ```bash
-pnpm i && pnpm build
+pnpm i
 ```
 
 3. Add the following to your MCP client `config.json`:
@@ -75,7 +75,7 @@ pnpm i && pnpm build
     "hubspot": {
       "command": "node",
       "args": [
-        "/path/to/hubspot-mcp/dist/index.js"
+        "/path/to/hubspot-mcp/index.js"
       ],
       "env": {
         "HUBSPOT_ACCESS_TOKEN": "your-access-token-here"
