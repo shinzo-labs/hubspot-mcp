@@ -11,15 +11,5 @@ startCommand:
       HUBSPOT_ACCESS_TOKEN:
         type: string
         description: "HUBSPOT_ACCESS_TOKEN - Your HubSpot API access token"
-  commandFunction:
-    # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
-    |-
-    (config) => ({
-      command: 'node',
-      args: ['index.js'],
-      env: {
-        HUBSPOT_ACCESS_TOKEN: config.HUBSPOT_ACCESS_TOKEN
-      }
-    })
   exampleConfig:
     HUBSPOT_ACCESS_TOKEN: your-token-here

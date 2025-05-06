@@ -2,8 +2,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js"
-import express from "express"
+import { createStatelessServer } from "@smithery/sdk/server/stateless.js"
 import { z } from "zod"
 
 // Unified response formatter for both success and error responses
@@ -18,8 +17,7 @@ function formatResponse(messageOrData, status = 200) {
 }
 
 // Helper function for making API requests to HubSpot
-async function makeApiRequest(endpoint, params = {}, method = 'GET', body = null) {
-  const apiKey = process.env.HUBSPOT_ACCESS_TOKEN
+async function makeApiRequest(apiKey, endpoint, params = {}, method = 'GET', body = null) {
   if (!apiKey) {
     throw new Error("HUBSPOT_ACCESS_TOKEN environment variable is not set")
   }
@@ -57,9 +55,9 @@ async function makeApiRequest(endpoint, params = {}, method = 'GET', body = null
 }
 
 // Enhanced API request wrapper with error handling
-async function makeApiRequestWithErrorHandling(endpoint, params = {}, method = 'GET', body = null) {
+async function makeApiRequestWithErrorHandling(apiKey, endpoint, params = {}, method = 'GET', body = null) {
   try {
-    const data = await makeApiRequest(endpoint, params, method, body)
+    const data = await makeApiRequest(apiKey, endpoint, params, method, body)
     return formatResponse(data)
   } catch (error) {
     return formatResponse(`Error performing request: ${error.message}`, 500)
@@ -75,12 +73,20 @@ async function handleEndpoint(apiCall) {
   }
 }
 
-const createServer = () => {
+function getConfig(config) {
+  return {
+    hubspotAccessToken: config?.HUBSPOT_ACCESS_TOKEN || process.env.HUBSPOT_ACCESS_TOKEN
+  }
+}
+
+function createServer({ config }) {
   const server = new McpServer({
     name: "HubSpot-MCP",
     version: "1.3.1",
     description: "An extensive MCP for the HubSpot API"
   })
+
+  const { hubspotAccessToken } = getConfig(config)
 
   // Company-specific property schema
   const companyPropertiesSchema = z.object({
@@ -118,7 +124,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/companies'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
         })
@@ -135,7 +141,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/companies/${params.companyId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'PATCH', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
         })
       })
@@ -152,7 +158,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/companies/${params.companyId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
         })
@@ -181,7 +187,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/companies/search'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken,  endpoint, {}, 'POST', {
           filterGroups: params.filterGroups,
           properties: params.properties,
           limit: params.limit,
@@ -209,7 +215,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/companies/batch/create'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
         })
       })
@@ -227,7 +233,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/companies/batch/update'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
         })
       })
@@ -243,7 +249,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/properties/companies'
-        return await makeApiRequestWithErrorHandling(endpoint, {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           archived: params.archived,
           properties: params.properties?.join(',')
         })
@@ -275,7 +281,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/properties/companies'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', params)
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', params)
       })
     }
   )
@@ -293,7 +299,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/${params.objectType}`
-        return await makeApiRequestWithErrorHandling(endpoint, {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           after: params.after,
           limit: params.limit,
@@ -314,7 +320,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/${params.objectType}/${params.objectId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
         })
@@ -338,7 +344,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/${params.objectType}`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
         })
@@ -356,7 +362,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/${params.objectType}/${params.objectId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'PATCH', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
         })
       })
@@ -372,7 +378,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/${params.objectType}/${params.objectId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'DELETE')
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
       })
     }
   )
@@ -399,7 +405,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/${params.objectType}/search`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           filterGroups: params.filterGroups,
           properties: params.properties,
           limit: params.limit,
@@ -428,7 +434,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/${params.objectType}/batch/create`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
         })
       })
@@ -447,7 +453,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/${params.objectType}/batch/update`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
         })
       })
@@ -463,7 +469,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/${params.objectType}/batch/archive`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.objectIds.map(id => ({ id }))
         })
       })
@@ -480,7 +486,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v4/associations/${params.fromObjectType}/${params.toObjectType}/types`
-        return await makeApiRequestWithErrorHandling(endpoint)
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint)
       })
     }
   )
@@ -497,7 +503,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v4/objects/${params.fromObjectType}/${params.fromObjectId}/associations/${params.toObjectType}`
-        return await makeApiRequestWithErrorHandling(endpoint, {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           after: params.after,
           limit: params.limit
         })
@@ -520,7 +526,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v4/objects/${params.fromObjectType}/${params.fromObjectId}/associations/${params.toObjectType}/${params.toObjectId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'PUT', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PUT', {
           types: params.associationTypes
         })
       })
@@ -538,7 +544,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v4/objects/${params.fromObjectType}/${params.fromObjectId}/associations/${params.toObjectType}/${params.toObjectId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'DELETE')
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
       })
     }
   )
@@ -560,7 +566,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v4/associations/${params.fromObjectType}/${params.toObjectType}/batch/create`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
         })
       })
@@ -580,7 +586,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v4/associations/${params.fromObjectType}/${params.toObjectType}/batch/archive`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
         })
       })
@@ -625,7 +631,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/contacts'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
         })
@@ -642,7 +648,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/contacts/${params.contactId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'PATCH', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
         })
       })
@@ -659,7 +665,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/contacts/${params.contactId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
         })
@@ -688,7 +694,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/contacts/search'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           filterGroups: params.filterGroups,
           properties: params.properties,
           limit: params.limit,
@@ -716,7 +722,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/contacts/batch/create'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
         })
       })
@@ -734,7 +740,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/contacts/batch/update'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
         })
       })
@@ -750,7 +756,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/properties/contacts'
-        return await makeApiRequestWithErrorHandling(endpoint, {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           archived: params.archived,
           properties: params.properties?.join(',')
         })
@@ -782,7 +788,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/properties/contacts'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', params)
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', params)
       })
     }
   )
@@ -826,7 +832,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/leads'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
         })
@@ -843,7 +849,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/leads/${params.leadId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'PATCH', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
         })
       })
@@ -860,7 +866,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/leads/${params.leadId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
         })
@@ -889,7 +895,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/leads/search'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           filterGroups: params.filterGroups,
           properties: params.properties,
           limit: params.limit,
@@ -917,7 +923,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/leads/batch/create'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
         })
       })
@@ -935,7 +941,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/leads/batch/update'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
         })
       })
@@ -951,7 +957,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/properties/leads'
-        return await makeApiRequestWithErrorHandling(endpoint, {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           archived: params.archived,
           properties: params.properties?.join(',')
         })
@@ -983,7 +989,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/properties/leads'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', params)
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', params)
       })
     }
   )
@@ -1001,7 +1007,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/meetings'
-        return await makeApiRequestWithErrorHandling(endpoint, {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           after: params.after,
           limit: params.limit,
           createdAfter: params.createdAfter,
@@ -1022,7 +1028,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/meetings/${params.meetingId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
         })
@@ -1054,7 +1060,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/meetings'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
         })
@@ -1079,7 +1085,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/meetings/${params.meetingId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'PATCH', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
         })
       })
@@ -1094,7 +1100,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/meetings/${params.meetingId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'DELETE')
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
       })
     }
   )
@@ -1120,7 +1126,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/meetings/search'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           filterGroups: params.filterGroups,
           properties: params.properties,
           limit: params.limit,
@@ -1157,7 +1163,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/meetings/batch/create'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
         })
       })
@@ -1183,7 +1189,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/meetings/batch/update'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
         })
       })
@@ -1198,7 +1204,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/meetings/batch/archive'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.meetingIds.map(id => ({ id }))
         })
       })
@@ -1227,7 +1233,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/notes'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
         })
@@ -1245,7 +1251,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/notes/${params.noteId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
         })
@@ -1262,7 +1268,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/notes/${params.noteId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'PATCH', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
         })
       })
@@ -1277,7 +1283,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/notes/${params.noteId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'DELETE')
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
       })
     }
   )
@@ -1294,7 +1300,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/notes'
-        return await makeApiRequestWithErrorHandling(endpoint, {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           limit: params.limit,
           after: params.after,
           properties: params.properties?.join(','),
@@ -1326,7 +1332,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/notes/search'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           filterGroups: params.filterGroups,
           properties: params.properties,
           limit: params.limit,
@@ -1354,7 +1360,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/notes/batch/create'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
         })
       })
@@ -1373,7 +1379,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/notes/batch/read'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
         })
       })
@@ -1391,7 +1397,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/notes/batch/update'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
         })
       })
@@ -1406,7 +1412,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/notes/batch/archive'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.noteIds.map(id => ({ id }))
         })
       })
@@ -1440,7 +1446,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/tasks'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
         })
@@ -1458,7 +1464,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/tasks/${params.taskId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
         })
@@ -1475,7 +1481,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/tasks/${params.taskId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'PATCH', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
         })
       })
@@ -1490,7 +1496,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/tasks/${params.taskId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'DELETE')
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
       })
     }
   )
@@ -1507,7 +1513,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/tasks'
-        return await makeApiRequestWithErrorHandling(endpoint, {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           limit: params.limit,
           after: params.after,
           properties: params.properties?.join(','),
@@ -1539,7 +1545,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/tasks/search'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           filterGroups: params.filterGroups,
           properties: params.properties,
           limit: params.limit,
@@ -1567,7 +1573,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/tasks/batch/create'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
         })
       })
@@ -1586,7 +1592,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/tasks/batch/read'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
         })
       })
@@ -1604,7 +1610,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/tasks/batch/update'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
         })
       })
@@ -1619,7 +1625,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/tasks/batch/archive'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.taskIds.map(id => ({ id }))
         })
       })
@@ -1650,7 +1656,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/engagements/v1/engagements/${params.engagementId}`
-        return await makeApiRequestWithErrorHandling(endpoint)
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint)
       })
     }
   )
@@ -1671,7 +1677,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/engagements/v1/engagements'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           engagement: params.engagement,
           associations: params.associations,
           metadata: params.metadata
@@ -1690,7 +1696,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/engagements/v1/engagements/${params.engagementId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'PATCH', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           engagement: params.engagement,
           metadata: params.metadata
         })
@@ -1710,7 +1716,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/engagements/v1/engagements/paged'
-        return await makeApiRequestWithErrorHandling(endpoint, {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           limit: params.limit,
           offset: params.offset,
           startTime: params.startTime,
@@ -1729,7 +1735,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/engagements/v1/engagements/${params.engagementId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'DELETE')
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
       })
     }
   )
@@ -1748,7 +1754,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/engagements/v1/engagements/associated/${params.objectType}/${params.objectId}/paged`
-        return await makeApiRequestWithErrorHandling(endpoint, {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           startTime: params.startTime,
           endTime: params.endTime,
           activityTypes: params.activityTypes?.join(','),
@@ -1787,7 +1793,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/calls'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
         })
@@ -1805,7 +1811,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/calls/${params.callId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
         })
@@ -1822,7 +1828,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/calls/${params.callId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'PATCH', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
         })
       })
@@ -1837,7 +1843,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/calls/${params.callId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'DELETE')
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
       })
     }
   )
@@ -1854,7 +1860,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/calls'
-        return await makeApiRequestWithErrorHandling(endpoint, {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           limit: params.limit,
           after: params.after,
           properties: params.properties?.join(','),
@@ -1886,7 +1892,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/calls/search'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           filterGroups: params.filterGroups,
           properties: params.properties,
           limit: params.limit,
@@ -1914,7 +1920,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/calls/batch/create'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
         })
       })
@@ -1933,7 +1939,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/calls/batch/read'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
         })
       })
@@ -1951,7 +1957,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/calls/batch/update'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
         })
       })
@@ -1966,7 +1972,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/calls/batch/archive'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.callIds.map(id => ({ id }))
         })
       })
@@ -2008,7 +2014,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/emails'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
         })
@@ -2026,7 +2032,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/emails/${params.emailId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
         })
@@ -2043,7 +2049,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/emails/${params.emailId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'PATCH', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
         })
       })
@@ -2058,7 +2064,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/emails/${params.emailId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'DELETE')
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
       })
     }
   )
@@ -2075,7 +2081,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/emails'
-        return await makeApiRequestWithErrorHandling(endpoint, {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           limit: params.limit,
           after: params.after,
           properties: params.properties?.join(','),
@@ -2107,7 +2113,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/emails/search'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           filterGroups: params.filterGroups,
           properties: params.properties,
           limit: params.limit,
@@ -2135,7 +2141,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/emails/batch/create'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
         })
       })
@@ -2154,7 +2160,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/emails/batch/read'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
         })
       })
@@ -2172,7 +2178,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/emails/batch/update'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
         })
       })
@@ -2187,7 +2193,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/emails/batch/archive'
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.emailIds.map(id => ({ id }))
         })
       })
@@ -2210,11 +2216,9 @@ const createServer = () => {
     },
     async (params) => {
       return handleEndpoint(async () => {
-        const endpoint = `/communication-preferences/v3/status/email/${params.contactId}`
-        if (params.subscriptionId) {
-          return await makeApiRequestWithErrorHandling(`${endpoint}/subscription/${params.subscriptionId}`)
-        }
-        return await makeApiRequestWithErrorHandling(endpoint)
+        const subscriptionEndpointPath = params.subscriptionId ? `/subscription/${params.subscriptionId}` : ''
+        const endpoint = `/communication-preferences/v3/status/email/${params.contactId}${subscriptionEndpointPath}`
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint)
       })
     }
   )
@@ -2229,7 +2233,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/communication-preferences/v3/status/email/${params.contactId}/subscription/${params.subscriptionId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'PUT', params.preferences)
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PUT', params.preferences)
       })
     }
   )
@@ -2244,7 +2248,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/communication-preferences/v3/unsubscribe/email/${params.contactId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'PUT', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PUT', {
           portalSubscriptionLegalBasis: params.portalSubscriptionLegalBasis,
           portalSubscriptionLegalBasisExplanation: params.portalSubscriptionLegalBasisExplanation
         })
@@ -2262,7 +2266,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/communication-preferences/v3/subscribe/email/${params.contactId}`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'PUT', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PUT', {
           portalSubscriptionLegalBasis: params.portalSubscriptionLegalBasis,
           portalSubscriptionLegalBasisExplanation: params.portalSubscriptionLegalBasisExplanation
         })
@@ -2278,7 +2282,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/communication-preferences/v3/definitions'
-        return await makeApiRequestWithErrorHandling(endpoint, {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           archived: params.archived
         })
       })
@@ -2294,7 +2298,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/communication-preferences/v3/status/email/subscription/${params.subscriptionId}/bulk`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'POST', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           contactIds: params.contactIds
         })
       })
@@ -2315,7 +2319,7 @@ const createServer = () => {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/communication-preferences/v3/status/email/subscription/${params.subscriptionId}/bulk`
-        return await makeApiRequestWithErrorHandling(endpoint, {}, 'PUT', {
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PUT', {
           updates: params.updates
         })
       })
@@ -2326,62 +2330,11 @@ const createServer = () => {
 }
 
 // Stdio Server 
-const stdioServer = createServer()
+const stdioServer = createServer({})
 const transport = new StdioServerTransport()
 await stdioServer.connect(transport)
 
 // Streamable HTTP Server
-const app = express()
-app.use(express.json())
-
-app.post('/mcp', async (req, res) => {
-  try {
-    const server = createServer()
-    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
-
-    res.on('close', () => {
-      transport.close()
-      server.close()
-    })
-
-    await server.connect(transport)
-    await transport.handleRequest(req, res, req.body)
-  } catch (error) {
-    if (!res.headersSent) {
-      res.status(500).json({
-        jsonrpc: '2.0',
-        error: {
-          code: -32603,
-          message: 'Internal server error',
-        },
-        id: null
-      })
-    }
-  }
-})
-
-app.get('/mcp', async (req, res) => {
-  res.writeHead(405).end(JSON.stringify({
-    jsonrpc: "2.0",
-    error: {
-      code: -32000,
-      message: "Method not allowed."
-    },
-    id: null
-  }))
-})
-
-app.delete('/mcp', async (req, res) => {
-  res.writeHead(405).end(JSON.stringify({
-    jsonrpc: "2.0",
-    error: {
-      code: -32000,
-      message: "Method not allowed."
-    },
-    id: null
-  }))
-})
-
-// Start the server
+const { app } = createStatelessServer(createServer)
 const PORT = process.env.PORT || 3000
 app.listen(PORT)
