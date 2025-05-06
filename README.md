@@ -90,7 +90,7 @@ pnpm i
 | Variable               | Description                               | Required? | Default |
 |------------------------|-------------------------------------------|-----------|---------|
 | `HUBSPOT_ACCESS_TOKEN` | Access Token for Hubspot Application      | Yes       |         |
-| `STREAMABLE_HTTP_PORT` | Port for Streamable HTTP transport method | No        | `3000`  |
+| `PORT                ` | Port for Streamable HTTP transport method | No        | `3000`  |
 
 ## Supported Tools
 
