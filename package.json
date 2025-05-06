@@ -11,7 +11,8 @@
     "start": "node ./index.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.11.0",
+    "@smithery/sdk": "^1.2.2",
     "zod": "^3.22.4"
   },
   "keywords": [
