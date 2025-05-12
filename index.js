@@ -82,7 +82,7 @@ function getConfig(config) {
 function createServer({ config }) {
   const server = new McpServer({
     name: "HubSpot-MCP",
-    version: "1.4.0",
+    version: "1.5.0",
     description: "An extensive MCP for the HubSpot API"
   })
 
