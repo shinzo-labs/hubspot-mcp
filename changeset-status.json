@@ -1,0 +1,25 @@
+{
+  "changesets": [
+    {
+      "releases": [
+        {
+          "name": "@shinzolabs/hubspot-mcp",
+          "type": "minor"
+        }
+      ],
+      "summary": "Add Github workflows and proper changeset management",
+      "id": "dirty-cows-switch"
+    }
+  ],
+  "releases": [
+    {
+      "name": "@shinzolabs/hubspot-mcp",
+      "type": "minor",
+      "oldVersion": "1.4.0",
+      "changesets": [
+        "dirty-cows-switch"
+      ],
+      "newVersion": "1.5.0"
+    }
+  ]
+}
