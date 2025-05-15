@@ -1,14 +1,16 @@
 {
   "name": "@shinzolabs/hubspot-mcp",
   "version": "1.5.0",
-  "description": "An extensive MCP for the HubSpot API",
+  "description": "Hubspot MCP - An extensive MCP server for the HubSpot API",
   "type": "module",
-  "main": "index.js",
+  "main": "dist/index.js",
   "bin": {
-    "hubspot-mcp": "./index.js"
+    "hubspot-mcp": "./dist/index.js"
   },
   "scripts": {
-    "start": "node ./index.js"
+    "build": "tsc -p tsconfig.json",
+    "start": "node ./dist/index.js",
+    "test": "jest"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.11.0",
@@ -31,6 +33,14 @@
     "node": ">=18.0.0"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.29.4"
+    "@babel/core": "^7.27.1",
+    "@babel/preset-env": "^7.27.2",
+    "@babel/preset-typescript": "^7.27.1",
+    "@changesets/cli": "^2.29.4",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^20.17.27",
+    "babel-jest": "^29.7.0",
+    "jest": "^29.7.0",
+    "typescript": "^5.8.2"
   }
 }

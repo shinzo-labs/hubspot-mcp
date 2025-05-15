@@ -75,7 +75,7 @@ jobs:
       - name: Update MCP version
         run: .github/scripts/update-mcp-version.sh
         env:
-          PATH_TO_FILE: 'index.js'
+          PATH_TO_FILE: 'src/index.ts'
 
   gh-release:
     name: GH Release
