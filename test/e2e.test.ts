@@ -6,6 +6,7 @@ import path from 'path'
 const RESPONSE_TIMEOUT = 1_000 // 1s
 const START_DELAY = 1_000 // 1s
 const TEST_TIMEOUT = 10_000 // 10s
+const SEARCH_DELAY = 8 // 10s
 
 const TOTAL_TOOLS = 101
 
@@ -224,7 +225,7 @@ describe('Hubspot MCP', () => {
     })
 
     it('can call the crm_search_companies tool', async () => {
-      await delay(RESPONSE_TIMEOUT * 5) // Wait additional time to ensure the company is indexed
+      await delay(RESPONSE_TIMEOUT * SEARCH_DELAY) // Wait additional time to ensure the company is indexed
       stdioClient.send(jsonRpcMessage.crmSearchCompanies)
       await delay(RESPONSE_TIMEOUT)
 
@@ -249,7 +250,7 @@ describe('Hubspot MCP', () => {
   })
 
   describe('Streamable HTTP Transport', () => {
-    let draftId: string
+    let companyId: string
 
     it('responds to ping', async () => {
       const response = await sendPostRequest(jsonRpcMessage.ping)
@@ -267,126 +268,63 @@ describe('Hubspot MCP', () => {
       expect(sseResponse.result.tools?.length).toEqual(TOTAL_TOOLS)
     })
 
-    // it('can call the get_profile tool', async () => {
-    //   const response = await sendPostRequest(jsonRpcMessage.getProfile)
-    //   expect(response.status).toBe(200)
+    it('can call the crm_create_company tool', async () => {
+      const response = await sendPostRequest(jsonRpcMessage.crmCreateCompany)
+      expect(response.status).toBe(200)
 
-    //   const sseResponse = await getSSEData(response)
-    //   expect(sseResponse.result.content?.length).toEqual(1)
+      const sseResponse = await getSSEData(response)
+      expect(sseResponse.result.content?.length).toEqual(1)
 
-    //   const firstMessage = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
-    //   expect(firstMessage.emailAddress).toBeDefined()
-    //   expect(firstMessage.messagesTotal).toBeDefined()
-    //   expect(firstMessage.historyId).toBeDefined()
-    // })
+      const company = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
+      expect(company.properties.name).toEqual('Test Company')
+      companyId = company.id
+    })
 
-    // it('can call the create_draft tool', async () => {
-    //   const response = await sendPostRequest(jsonRpcMessage.createDraft)
-    //   expect(response.status).toBe(200)
+    it('can call the crm_get_company tool', async () => {
+      jsonRpcMessage.crmGetCompany["params"].arguments.companyId = companyId
+      const response = await sendPostRequest(jsonRpcMessage.crmGetCompany)
+      expect(response.status).toBe(200)
 
-    //   const sseResponse = await getSSEData(response)
-    //   expect(sseResponse.result.content?.length).toEqual(1)
+      const sseResponse = await getSSEData(response)
+      expect(sseResponse.result.content?.length).toEqual(1)
 
-    //   draftId = JSON.parse(sseResponse.result.content?.[0].text).id
-    //   expect(draftId).toBeDefined()
-    // })
+      const company = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
+      expect(company.properties.name).toEqual('Test Company')
+    })
 
-    // it('can call the list_drafts tool', async () => {
-    //   const response = await sendPostRequest(jsonRpcMessage.listDrafts)
-    //   expect(response.status).toBe(200)
+    it('can call the crm_update_company tool', async () => {
+      jsonRpcMessage.crmUpdateCompany["params"].arguments.companyId = companyId
+      const response = await sendPostRequest(jsonRpcMessage.crmUpdateCompany)
+      expect(response.status).toBe(200)
 
-    //   const sseResponse = await getSSEData(response)
-    //   expect(sseResponse.result.content?.length).toEqual(1)
+      const sseResponse = await getSSEData(response)
+      expect(sseResponse.result.content?.length).toEqual(1)
 
-    //   const draftsList = JSON.parse(sseResponse.result.content?.[0].text)
-    //   const createdDraft = draftsList.find((draft: any) => draft.id === draftId)
-    //   expect(createdDraft).toBeDefined()
-    // })
+      const updated = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
+      expect(updated.properties.name).toEqual('Test Company Updated')
+    })
 
-    // it('can call the get_draft tool', async () => {
-    //   jsonRpcMessage.getDraft["params"].arguments.id = draftId // Beware this modifies the original object
-    //   const response = await sendPostRequest(jsonRpcMessage.getDraft)
-    //   expect(response.status).toBe(200)
+    it('can call the crm_search_companies tool', async () => {
+      await delay(RESPONSE_TIMEOUT * SEARCH_DELAY) // Wait additional time to ensure the company is indexed
+      const response = await sendPostRequest(jsonRpcMessage.crmSearchCompanies)
+      expect(response.status).toBe(200)
 
-    //   const getDraftSseResponse = await getSSEData(response)
-    //   expect(getDraftSseResponse.result.content?.length).toEqual(1)
+      const sseResponse = await getSSEData(response)
+      expect(sseResponse.result.content?.length).toEqual(1)
 
-    //   const draftEmail = JSON.parse(getDraftSseResponse.result.content?.[0].text)
-    //   expect(draftEmail.message.labelIds).toContain("DRAFT")
-    //   expect(draftEmail.message.snippet).toEqual("Test Body")
-    // })
+      const results = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
+      expect(Array.isArray(results.results)).toBe(true)
+      expect(results.results.length).toBeGreaterThan(0)
+      expect(results.results[0].id).toEqual(companyId)
+    })
 
-    // it('can call the update_draft tool', async () => {
-    //   jsonRpcMessage.updateDraft["params"].arguments.id = draftId // Beware this modifies the original object
-    //   const response = await sendPostRequest(jsonRpcMessage.updateDraft)
-    //   expect(response.status).toBe(200)
+    it('can call the crm_delete_object tool', async () => {
+      jsonRpcMessage.crmDeleteObject["params"].arguments.objectId = companyId
+      const response = await sendPostRequest(jsonRpcMessage.crmDeleteObject)
+      expect(response.status).toBe(200)
 
-    //   const updateDraftSseResponse = await getSSEData(response)
-    //   expect(updateDraftSseResponse.result.content?.length).toEqual(1)
-
-    //   const updatedDraft = JSON.parse(updateDraftSseResponse.result.content?.[0].text)
-    //   console.log(updatedDraft)
-    //   expect(updatedDraft.message.labelIds).toContain("DRAFT")
-    //   // expect(updatedDraft.message.snippet).toEqual("Updated Body") // TODO this test fails, update before uncommenting the update_draft method
-    // })
-
-    // it('can call the delete_draft tool', async () => {
-    //   jsonRpcMessage.deleteDraft["params"].arguments.id = draftId // Beware this modifies the original object
-    //   const response = await sendPostRequest(jsonRpcMessage.deleteDraft)
-    //   expect(response.status).toBe(200)
-
-    //   const deleteDraftSseResponse = await getSSEData(response)
-    //   expect(deleteDraftSseResponse.result.content?.length).toEqual(1)
-    // })
-
-    // it('can call the crm_create_company tool', async () => {
-    //   const response = await sendPostRequest(jsonRpcMessage.crmCreateCompany)
-    //   expect(response.status).toBe(200)
-
-    //   const sseResponse = await getSSEData(response)
-    //   expect(sseResponse.result.content?.length).toEqual(1)
-    //   // const company = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
-    //   // expect(company.properties.name).toEqual('Test Company')
-    // })
-
-    // it('can call the crm_get_company tool', async () => {
-    //   const response = await sendPostRequest(jsonRpcMessage.crmGetCompany)
-    //   expect(response.status).toBe(200)
-
-    //   const sseResponse = await getSSEData(response)
-    //   expect(sseResponse.result.content?.length).toEqual(1)
-    //   // const company = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
-    //   // expect(company.id).toEqual('test-id')
-    // })
-
-    // it('can call the crm_update_company tool', async () => {
-    //   const response = await sendPostRequest(jsonRpcMessage.crmUpdateCompany)
-    //   expect(response.status).toBe(200)
-
-    //   const sseResponse = await getSSEData(response)
-    //   expect(sseResponse.result.content?.length).toEqual(1)
-    //   // const updated = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
-    //   // expect(updated.properties.name).toEqual('Test Company Updated')
-    // })
-
-    // it('can call the crm_search_companies tool', async () => {
-    //   const response = await sendPostRequest(jsonRpcMessage.crmSearchCompanies)
-    //   expect(response.status).toBe(200)
-
-    //   const sseResponse = await getSSEData(response)
-    //   expect(sseResponse.result.content?.length).toEqual(1)
-    //   // const results = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
-    //   // expect(Array.isArray(results.results)).toBe(true)
-    // })
-
-    // it('can call the crm_delete_company tool', async () => {
-    //   const response = await sendPostRequest(jsonRpcMessage.crmDeleteCompany)
-    //   expect(response.status).toBe(200)
-
-    //   const sseResponse = await getSSEData(response)
-    //   expect(sseResponse.result.content?.length).toEqual(1)
-    //   // const deleted = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
-    //   // expect(deleted.id).toEqual('test-id')
-    // })
+      const sseResponse = await getSSEData(response)
+      expect(sseResponse.result.content?.[0].text).toEqual(`No data returned: Status 204`)
+    })
   })
 })
