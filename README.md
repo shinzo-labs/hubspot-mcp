@@ -257,6 +257,22 @@ pnpm i
   - `communications_get_subscription_status`: Get status for multiple contacts
   - `communications_update_subscription_status`: Update status for multiple contacts
 
+### Products
+
+#### Basic Operations:
+- `products_create`: Create a product with the given properties and return a copy of the object, including the ID.
+- `products_read`: Read an Object identified by ID
+- `products_update`: Perform a partial update of an Object identified by ID. Read-only and non-existent properties will result in an error. Properties values can be cleared by passing an empty string.
+- `products_archive`: Move an Object identified by ID to the recycling bin.
+- `products_list`: Read a page of products. Control what is returned via the `properties` query param. `after` is the paging cursor token of the last successfully read resource will be returned as the `paging.next.after` JSON property of a paged response containing more results.
+- `products_search`: Search products
+
+#### Batch Operations:
+- `products_batch_create`: Create a batch of products
+- `products_batch_read`: Read a batch of products by internal ID, or unique property values. Retrieve records by the `idProperty` parameter to retrieve records by a custom unique value property.
+- `products_batch_update`: Update a batch of products by internal ID, or unique values specified by the `idProperty` query param.
+- `products_batch_archive`: Archive a batch of products by ID
+
 ## Contributing
 
 Contributions are welcomed and encouraged! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines on issues, contributions, and contact information.
