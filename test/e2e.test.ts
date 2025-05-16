@@ -8,7 +8,7 @@ const START_DELAY = 1_000 // 1s
 const TEST_TIMEOUT = 10_000 // 10s
 const SEARCH_DELAY = 8 // 10s
 
-const TOTAL_TOOLS = 101
+const TOTAL_TOOLS = 111
 
 const streamableClientUrl = new URL(`http://localhost:${process.env.PORT || 3000}/mcp`)
 
@@ -94,6 +94,84 @@ const jsonRpcMessage: Record<string, JSONRPCMessage> = {
       objectType: "companies",
       objectId: "test-id"
     }
+  } },
+  productsCreate: { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
+    name: "products_create",
+    arguments: {
+      properties: {
+        name: "Test Product"
+      }
+    }
+  } },
+  productsRead: { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
+    name: "products_read",
+    arguments: {
+      productId: "test-id"
+    }
+  } },
+  productsUpdate: { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
+    name: "products_update",
+    arguments: {
+      productId: "test-id",
+      properties: {
+        name: "Test Product Updated"
+      }
+    }
+  } },
+  productsList: { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
+    name: "products_list",
+    arguments: {
+      limit: 100,
+      properties: ["name", "description"]
+    }
+  } },
+  productsSearch: { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
+    name: "products_search",
+    arguments: {
+      limit: 100,
+      properties: ["name", "description"],
+      filterGroups: [{
+        filters: [{
+          propertyName: "name",
+          operator: "CONTAINS_TOKEN",
+          value: "Test Product"
+        }]
+      }]
+    }
+  } },
+  productsArchive: { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
+    name: "products_archive",
+    arguments: {
+      productId: "test-id"
+    }
+  } },
+  productsBatchCreate: { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
+    name: "products_batch_create",
+    arguments: {
+      inputs: [
+        { properties: { name: "Test Product" } },
+        { properties: { name: "Test Product 2" } }
+      ]
+    }
+  } },
+  productsBatchRead: { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
+    name: "products_batch_read",
+    arguments: {
+      propertiesWithHistory: [],
+      properties: ["name"]
+    }
+  } },
+  productsBatchUpdate: { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
+    name: "products_batch_update",
+    arguments: {}
+  } },
+  productsBatchUpsert: { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
+    name: "products_batch_upsert",
+    arguments: {}
+  } },
+  productsBatchArchive: { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
+    name: "products_batch_archive",
+    arguments: {}
   } }
 }
 
@@ -159,6 +237,8 @@ describe('Hubspot MCP', () => {
     let readMessages: ReadMessageType[]
     let errors: Error[]
     let companyId: string
+    let productId: string
+    let batchProductIds: string[]
 
     beforeAll(async () => {
       await delay(START_DELAY)
@@ -247,10 +327,121 @@ describe('Hubspot MCP', () => {
       expect(readMessages[0].result.content?.length).toEqual(1)
       expect(readMessages[0].result.content?.[0].text).toEqual(`No data returned: Status 204`)
     })
+
+    it('can call the products_create tool', async () => {
+      stdioClient.send(jsonRpcMessage.productsCreate)
+      await delay(RESPONSE_TIMEOUT)
+      expect(readMessages).toHaveLength(1)
+      expect(readMessages[0].result.content?.length).toEqual(1)
+
+      const product = JSON.parse(readMessages[0].result.content?.[0].text ?? '{}')
+      expect(product.properties.name).toEqual('Test Product')
+      productId = product.id
+    })
+
+    it('can call the products_read tool', async () => {
+      jsonRpcMessage.productsRead["params"].arguments.productId = productId
+      stdioClient.send(jsonRpcMessage.productsRead)
+      await delay(RESPONSE_TIMEOUT)
+      expect(readMessages).toHaveLength(1)
+      expect(readMessages[0].result.content?.length).toEqual(1)
+
+      const product = JSON.parse(readMessages[0].result.content?.[0].text ?? '{}')
+      expect(product.properties.name).toEqual('Test Product')
+    })
+
+    it('can call the products_update tool', async () => {
+      jsonRpcMessage.productsUpdate["params"].arguments.productId = productId
+      stdioClient.send(jsonRpcMessage.productsUpdate)
+      await delay(RESPONSE_TIMEOUT)
+      expect(readMessages).toHaveLength(1)
+      expect(readMessages[0].result.content?.length).toEqual(1)
+
+      const updated = JSON.parse(readMessages[0].result.content?.[0].text ?? '{}')
+      expect(updated.properties.name).toEqual('Test Product Updated')
+    })
+
+    it('can call the products_list tool', async () => {
+      stdioClient.send(jsonRpcMessage.productsList)
+      await delay(RESPONSE_TIMEOUT)
+      expect(readMessages).toHaveLength(1)
+      expect(readMessages[0].result.content?.length).toEqual(1)
+
+      const results = JSON.parse(readMessages[0].result.content?.[0].text ?? '{}')
+      expect(Array.isArray(results.results)).toBe(true)
+    })
+
+    it('can call the products_search tool', async () => {
+      await delay(RESPONSE_TIMEOUT * SEARCH_DELAY) // Wait additional time to ensure the product is indexed
+      stdioClient.send(jsonRpcMessage.productsSearch)
+      await delay(RESPONSE_TIMEOUT)
+      expect(readMessages).toHaveLength(1)
+      expect(readMessages[0].result.content?.length).toEqual(1)
+
+      const results = JSON.parse(readMessages[0].result.content?.[0].text ?? '{}')
+      expect(Array.isArray(results.results)).toBe(true)
+      expect(results.results.length).toBeGreaterThan(0)
+      expect(results.results[0].id).toEqual(productId)
+    })
+
+    it('can call the products_archive tool', async () => {
+      jsonRpcMessage.productsArchive["params"].arguments.productId = productId
+      stdioClient.send(jsonRpcMessage.productsArchive)
+      await delay(RESPONSE_TIMEOUT)
+      expect(readMessages).toHaveLength(1)
+      expect(readMessages[0].result.content?.length).toEqual(1)
+      expect(readMessages[0].result.content?.[0].text).toEqual(`No data returned: Status 204`)
+    })
+
+    it('can call the products_batch_create tool', async () => {
+      stdioClient.send(jsonRpcMessage.productsBatchCreate)
+      await delay(RESPONSE_TIMEOUT)
+      expect(readMessages).toHaveLength(1)
+      expect(readMessages[0].result.content?.length).toEqual(1)
+
+      const result = JSON.parse(readMessages[0].result.content?.[0].text ?? '{}')
+      expect(Array.isArray(result.results)).toBe(true)
+      batchProductIds = result.results.map((p: any) => p.id)
+    })
+
+    it('can call the products_batch_read tool', async () => {
+      jsonRpcMessage.productsBatchRead["params"].arguments.inputs = batchProductIds.map(id => ({ id }))
+      stdioClient.send(jsonRpcMessage.productsBatchRead)
+      await delay(RESPONSE_TIMEOUT)
+      expect(readMessages).toHaveLength(1)
+      expect(readMessages[0].result.content?.length).toEqual(1)
+
+      const result = JSON.parse(readMessages[0].result.content?.[0].text ?? '{}')
+      expect(Array.isArray(result.results)).toBe(true)
+    })
+
+    it('can call the products_batch_update tool', async () => {
+      jsonRpcMessage.productsBatchUpdate["params"].arguments.inputs = batchProductIds.map(id => ({ 
+        id, 
+        properties: { name: `Batch Updated Product ${id}` }
+      }))
+      stdioClient.send(jsonRpcMessage.productsBatchUpdate)
+      await delay(RESPONSE_TIMEOUT)
+      expect(readMessages).toHaveLength(1)
+      expect(readMessages[0].result.content?.length).toEqual(1)
+
+      const result = JSON.parse(readMessages[0].result.content?.[0].text ?? '{}')
+      expect(Array.isArray(result.results)).toBe(true)
+    })
+
+    it('can call the products_batch_archive tool', async () => {
+      jsonRpcMessage.productsBatchArchive["params"].arguments.productIds = batchProductIds
+      stdioClient.send(jsonRpcMessage.productsBatchArchive)
+      await delay(RESPONSE_TIMEOUT)
+      expect(readMessages).toHaveLength(1)
+      expect(readMessages[0].result.content?.length).toEqual(1)
+    })
   })
 
   describe('Streamable HTTP Transport', () => {
     let companyId: string
+    let productId: string
+    let batchProductIds: string[]
 
     it('responds to ping', async () => {
       const response = await sendPostRequest(jsonRpcMessage.ping)
@@ -321,6 +512,130 @@ describe('Hubspot MCP', () => {
     it('can call the crm_delete_object tool', async () => {
       jsonRpcMessage.crmDeleteObject["params"].arguments.objectId = companyId
       const response = await sendPostRequest(jsonRpcMessage.crmDeleteObject)
+      expect(response.status).toBe(200)
+
+      const sseResponse = await getSSEData(response)
+      expect(sseResponse.result.content?.[0].text).toEqual(`No data returned: Status 204`)
+    })
+
+    it('can call the products_create tool', async () => {
+      const response = await sendPostRequest(jsonRpcMessage.productsCreate)
+      expect(response.status).toBe(200)
+
+      const sseResponse = await getSSEData(response)
+      expect(sseResponse.result.content?.length).toEqual(1)
+
+      const product = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
+      expect(product.properties.name).toEqual('Test Product')
+      productId = product.id
+    })
+
+    it('can call the products_read tool', async () => {
+      jsonRpcMessage.productsRead["params"].arguments.productId = productId
+      const response = await sendPostRequest(jsonRpcMessage.productsRead)
+      expect(response.status).toBe(200)
+
+      const sseResponse = await getSSEData(response)
+      expect(sseResponse.result.content?.length).toEqual(1)
+
+      const product = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
+      expect(product.properties.name).toEqual('Test Product')
+    })  
+
+    it('can call the products_update tool', async () => {
+      jsonRpcMessage.productsUpdate["params"].arguments.productId = productId
+      const response = await sendPostRequest(jsonRpcMessage.productsUpdate)
+      expect(response.status).toBe(200)
+
+      const sseResponse = await getSSEData(response)
+      expect(sseResponse.result.content?.length).toEqual(1)
+
+      const updated = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
+      expect(updated.properties.name).toEqual('Test Product Updated')
+    })
+
+    it('can call the products_list tool', async () => {
+      const response = await sendPostRequest(jsonRpcMessage.productsList)
+      expect(response.status).toBe(200)
+
+      const sseResponse = await getSSEData(response)
+      expect(sseResponse.result.content?.length).toEqual(1)
+
+      const results = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
+      expect(Array.isArray(results.results)).toBe(true)
+      expect(results.results.length).toBeGreaterThan(0)
+      expect(results.results[0].id).toEqual(productId)
+    })
+
+    it('can call the products_search tool', async () => {
+      await delay(RESPONSE_TIMEOUT * SEARCH_DELAY) // Wait additional time to ensure the product is indexed
+      const response = await sendPostRequest(jsonRpcMessage.productsSearch)
+      expect(response.status).toBe(200)
+
+      const sseResponse = await getSSEData(response)
+      expect(sseResponse.result.content?.length).toEqual(1)
+
+      const results = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
+      expect(Array.isArray(results.results)).toBe(true)
+      expect(results.results.length).toBeGreaterThan(0)
+      expect(results.results[0].id).toEqual(productId)
+    })
+
+    it('can call the products_archive tool', async () => {
+      jsonRpcMessage.productsArchive["params"].arguments.productId = productId
+      const response = await sendPostRequest(jsonRpcMessage.productsArchive)
+      expect(response.status).toBe(200)
+
+      const sseResponse = await getSSEData(response)
+      expect(sseResponse.result.content?.[0].text).toEqual(`No data returned: Status 204`)
+    })
+
+    it('can call the products_batch_create tool', async () => {
+      jsonRpcMessage.productsBatchCreate["params"].arguments.inputs = [
+        { properties: { name: "Test Product" } },
+        { properties: { name: "Test Product 2" } }
+      ]
+      const response = await sendPostRequest(jsonRpcMessage.productsBatchCreate)
+      expect(response.status).toBe(200)
+
+      const sseResponse = await getSSEData(response)
+      expect(sseResponse.result.content?.length).toEqual(1)
+
+      const result = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
+      expect(Array.isArray(result.results)).toBe(true)
+      batchProductIds = result.results.map((p: any) => p.id)
+    })
+
+    it('can call the products_batch_read tool', async () => {
+      jsonRpcMessage.productsBatchRead["params"].arguments.inputs = batchProductIds.map(id => ({ id }))
+      const response = await sendPostRequest(jsonRpcMessage.productsBatchRead)
+      expect(response.status).toBe(200)
+
+      const sseResponse = await getSSEData(response)
+      expect(sseResponse.result.content?.length).toEqual(1)
+
+      const result = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
+      expect(Array.isArray(result.results)).toBe(true)
+    })
+
+    it('can call the products_batch_update tool', async () => {
+      jsonRpcMessage.productsBatchUpdate["params"].arguments.inputs = batchProductIds.map(id => ({ 
+        id, 
+        properties: { name: `Batch Updated Product ${id}` }
+      }))
+      const response = await sendPostRequest(jsonRpcMessage.productsBatchUpdate)
+      expect(response.status).toBe(200)
+
+      const sseResponse = await getSSEData(response)
+      expect(sseResponse.result.content?.length).toEqual(1)
+
+      const result = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
+      expect(Array.isArray(result.results)).toBe(true)
+    })
+
+    it('can call the products_batch_archive tool', async () => {
+      jsonRpcMessage.productsBatchArchive["params"].arguments.productIds = batchProductIds
+      const response = await sendPostRequest(jsonRpcMessage.productsBatchArchive)
       expect(response.status).toBe(200)
 
       const sseResponse = await getSSEData(response)
