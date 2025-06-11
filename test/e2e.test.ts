@@ -251,6 +251,173 @@ describe('Hubspot MCP', () => {
       errors = []
     })
 
+  it('can call the crm_get_quote tool', async () => {
+  stdioClient.send({
+    jsonrpc: "2.0",
+    id: 1001,
+    method: "tools/call",
+    params: {
+      name: "crm_get_quote",
+      arguments: {
+        quoteId: "test-id"
+      }
+    }
+  })
+  await delay(RESPONSE_TIMEOUT)
+
+  expect(readMessages).toHaveLength(1)
+  const quote = JSON.parse(readMessages[0].result.content?.[0].text ?? '{}')
+  expect(quote.id).toBeDefined()
+  readMessages = []
+})
+
+it('can call the crm_list_quotes tool', async () => {
+  stdioClient.send({
+    jsonrpc: "2.0",
+    id: 1002,
+    method: "tools/call",
+    params: {
+      name: "crm_list_quotes",
+      arguments: {
+        limit: 10,
+        properties: ["hs_title"]
+      }
+    }
+  })
+  await delay(RESPONSE_TIMEOUT)
+
+  expect(readMessages).toHaveLength(1)
+  const result = JSON.parse(readMessages[0].result.content?.[0].text ?? '{}')
+  expect(Array.isArray(result.results)).toBe(true)
+  readMessages = []
+})
+
+it('can call the crm_get_meeting tool', async () => {
+  stdioClient.send({
+    jsonrpc: "2.0",
+    id: 1003,
+    method: "tools/call",
+    params: {
+      name: "crm_get_meeting",
+      arguments: {
+        meetingId: "test-id"
+      }
+    }
+  })
+  await delay(RESPONSE_TIMEOUT)
+
+  expect(readMessages).toHaveLength(1)
+  const meeting = JSON.parse(readMessages[0].result.content?.[0].text ?? '{}')
+  expect(meeting.id).toBeDefined()
+  readMessages = []
+})
+
+it('can call the crm_list_meetings tool', async () => {
+  stdioClient.send({
+    jsonrpc: "2.0",
+    id: 1004,
+    method: "tools/call",
+    params: {
+      name: "crm_list_meetings",
+      arguments: {
+        limit: 5,
+        properties: ["hs_meeting_title", "hs_meeting_start_time"]
+      }
+    }
+  })
+  await delay(RESPONSE_TIMEOUT)
+
+  expect(readMessages).toHaveLength(1)
+  const result = JSON.parse(readMessages[0].result.content?.[0].text ?? '{}')
+  expect(Array.isArray(result.results)).toBe(true)
+  readMessages = []
+})
+
+it('can call the crm_get_ticket tool', async () => {
+  stdioClient.send({
+    jsonrpc: "2.0",
+    id: 1005,
+    method: "tools/call",
+    params: {
+      name: "crm_get_ticket",
+      arguments: {
+        ticketId: "test-id"
+      }
+    }
+  })
+  await delay(RESPONSE_TIMEOUT)
+
+  expect(readMessages).toHaveLength(1)
+  const ticket = JSON.parse(readMessages[0].result.content?.[0].text ?? '{}')
+  expect(ticket.id).toBeDefined()
+  readMessages = []
+})
+
+it('can call the crm_list_tickets tool', async () => {
+  stdioClient.send({
+    jsonrpc: "2.0",
+    id: 1006,
+    method: "tools/call",
+    params: {
+      name: "crm_list_tickets",
+      arguments: {
+        limit: 5,
+        properties: ["subject", "content"]
+      }
+    }
+  })
+  await delay(RESPONSE_TIMEOUT)
+
+  expect(readMessages).toHaveLength(1)
+  const result = JSON.parse(readMessages[0].result.content?.[0].text ?? '{}')
+  expect(Array.isArray(result.results)).toBe(true)
+  readMessages = []
+})
+
+it('can call the crm_get_call tool', async () => {
+  stdioClient.send({
+    jsonrpc: "2.0",
+    id: 1007,
+    method: "tools/call",
+    params: {
+      name: "crm_get_call",
+      arguments: {
+        callId: "test-id"
+      }
+    }
+  })
+  await delay(RESPONSE_TIMEOUT)
+
+  expect(readMessages).toHaveLength(1)
+  const call = JSON.parse(readMessages[0].result.content?.[0].text ?? '{}')
+  expect(call.id).toBeDefined()
+  readMessages = []
+})
+
+it('can call the crm_list_calls tool', async () => {
+  stdioClient.send({
+    jsonrpc: "2.0",
+    id: 1008,
+    method: "tools/call",
+    params: {
+      name: "crm_list_calls",
+      arguments: {
+        limit: 5,
+        properties: ["status", "durationMilliseconds"]
+      }
+    }
+  })
+  await delay(RESPONSE_TIMEOUT)
+
+  expect(readMessages).toHaveLength(1)
+  const result = JSON.parse(readMessages[0].result.content?.[0].text ?? '{}')
+  expect(Array.isArray(result.results)).toBe(true)
+  readMessages = []
+})
+
+
+
+
     it('responds to ping', async () => {
       stdioClient.send(jsonRpcMessage.ping)
       await delay(RESPONSE_TIMEOUT)
