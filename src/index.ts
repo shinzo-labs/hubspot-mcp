@@ -326,6 +326,112 @@ function createServer({ config }: { config?: any } = {}) {
     }
   )
 
+  server.tool("crm_get_quote",
+  "Get a single quote by ID with specific properties and associations",
+  {
+    quoteId: z.string(),
+    properties: z.array(z.string()).optional(),
+    associations: z.array(z.string()).optional()
+  },
+  async (params) => {
+    return handleEndpoint(async () => {
+      const endpoint = `/crm/v3/objects/quotes/${params.quoteId}`
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
+        properties: params.properties?.join(','),
+        associations: params.associations?.join(',')
+      })
+    })
+  }
+)
+
+server.tool("crm_get_line_item",
+  "Get a single line item by ID with specific properties and associations",
+  {
+    lineItemId: z.string(),
+    properties: z.array(z.string()).optional(),
+    associations: z.array(z.string()).optional()
+  },
+  async (params) => {
+    return handleEndpoint(async () => {
+      const endpoint = `/crm/v3/objects/line_items/${params.lineItemId}`
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
+        properties: params.properties?.join(','),
+        associations: params.associations?.join(',')
+      })
+    })
+  }
+)
+server.tool("crm_get_ticket",
+  "Get a single ticket by ID with specific properties and associations",
+  {
+    ticketId: z.string(),
+    properties: z.array(z.string()).optional(),
+    associations: z.array(z.string()).optional()
+  },
+  async (params) => {
+    return handleEndpoint(async () => {
+      const endpoint = `/crm/v3/objects/tickets/${params.ticketId}`
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
+        properties: params.properties?.join(','),
+        associations: params.associations?.join(',')
+      })
+    })
+  }
+)
+server.tool("crm_get_call",
+  "Get a single call record by ID with specific properties and associations",
+  {
+    callId: z.string(),
+    properties: z.array(z.string()).optional(),
+    associations: z.array(z.string()).optional()
+  },
+  async (params) => {
+    return handleEndpoint(async () => {
+      const endpoint = `/crm/v3/objects/calls/${params.callId}`
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
+        properties: params.properties?.join(','),
+        associations: params.associations?.join(',')
+      })
+    })
+  }
+)
+
+server.tool("crm_get_meeting",
+  "Get a single meeting by ID with specific properties and associations",
+  {
+    meetingId: z.string(),
+    properties: z.array(z.string()).optional(),
+    associations: z.array(z.string()).optional()
+  },
+  async (params) => {
+    return handleEndpoint(async () => {
+      const endpoint = `/crm/v3/objects/meetings/${params.meetingId}`
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
+        properties: params.properties?.join(','),
+        associations: params.associations?.join(',')
+      })
+    })
+  }
+)
+server.tool("crm_get_feedback_submission",
+  "Get a single feedback submission by ID with specific properties and associations",
+  {
+    feedbackId: z.string(),
+    properties: z.array(z.string()).optional(),
+    associations: z.array(z.string()).optional()
+  },
+  async (params) => {
+    return handleEndpoint(async () => {
+      const endpoint = `/crm/v3/objects/feedback_submissions/${params.feedbackId}`
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
+        properties: params.properties?.join(','),
+        associations: params.associations?.join(',')
+      })
+    })
+  }
+)
+
+
   server.tool("crm_create_object",
     "Create a new CRM object",
     {
