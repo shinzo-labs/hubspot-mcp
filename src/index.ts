@@ -4,6 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { createStatelessServer } from "@smithery/sdk/server/stateless.js"
 import { z } from "zod"
+import { prompts } from "./prompts.js";
 
 function formatResponse(data: any) {
   let text = ''
@@ -2475,6 +2476,22 @@ function createServer({ config }: { config?: any } = {}) {
     })
   )
 
+  // Prompts tool for MCP clients
+  // Import prompts as an ES module
+  
+  server.tool(
+    "list_prompts",
+    "List available LLM prompt templates for common HubSpot workflows.",
+    {},
+    (_args, _extra) => ({
+      content: [
+        {
+          type: "text" as const,
+          text: JSON.stringify(prompts, null, 2)
+        }
+      ]
+    })
+  );
   return server.server
 }
 
