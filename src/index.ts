@@ -4,6 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { createStatelessServer } from "@smithery/sdk/server/stateless.js"
 import { z } from "zod"
+import { prompts } from "./prompts.js";
 
 function formatResponse(data: any) {
   let text = ''
@@ -2474,6 +2475,316 @@ function createServer({ config }: { config?: any } = {}) {
       })
     })
   )
+
+  // Prompts tool for MCP clients  // Import prompts as an ES module
+    // Register the list_prompts tool
+  server.tool(
+    "list_prompts",
+    "List available LLM prompt templates for common HubSpot workflows.",
+    {},
+    (_args, _extra) => ({
+      content: [
+        {
+          type: "text" as const,
+          text: JSON.stringify(prompts, null, 2)
+        }
+      ]
+    })
+  );
+
+  // Register each prompt directly with the server using the MCP standard way
+  // 1. Process Lead List prompt
+  server.prompt(
+    "process_lead_list",
+    { list: z.string() },
+    ({ list }) => ({
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: `I need to process this lead data into my HubSpot CRM. As a HubSpot database update specialist, please:
+
+1. ANALYZE the input data format (CSV, TSV, or other delimiter)
+2. IDENTIFY contacts, companies, and engagement information
+3. CHECK if records already exist before creating (using email for contacts, domain/name for companies)
+4. CREATE new records only when necessary, otherwise UPDATE existing ones
+5. ESTABLISH proper associations between contacts and companies
+6. MAINTAIN data integrity (use exact values provided, never invent data)
+7. HANDLE errors gracefully with clear explanations
+8. REPORT results with summary statistics (records created, updated, errors)
+
+Here's my lead data:
+
+\`\`\`
+${list}
+\`\`\`
+
+When finished, provide a summary of what was created, updated, and any errors encountered.`
+          }
+        }
+      ]
+    })
+  );
+
+  // 2. Update Company Info prompt
+  server.prompt(
+    "update_company_info",
+    { companyInfo: z.string() },
+    ({ companyInfo }) => ({
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: `As a HubSpot company data specialist, please update this company information with the following workflow:
+
+1. VALIDATE input data format and required fields
+2. IDENTIFY the company by company ID, domain, or name
+3. SEARCH for the company first to verify it exists
+4. UPDATE only the fields provided (never override with blank values)
+5. MAP common field variations to HubSpot properties (e.g., 'phone_number' → 'phone')
+6. VALIDATE property values against HubSpot requirements
+7. MAINTAIN industry standards for formats (phone numbers, addresses, etc.)
+8. REPORT success or specific errors with recommended resolutions
+
+Here's the company information to update:
+
+\`\`\`
+${companyInfo}
+\`\`\``
+          }
+        }
+      ]
+    })
+  );
+
+  // 3. Log Engagement prompt
+  server.prompt(
+    "log_engagement",
+    { engagementDetails: z.string() },
+    ({ engagementDetails }) => ({
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: `As a HubSpot engagement specialist, please log this engagement with the following workflow:
+
+1. IDENTIFY the engagement type (call, email, meeting, note, or task)
+2. VALIDATE required fields for that specific engagement type
+3. VERIFY the associated contact or company exists first (search by ID, email, or domain)
+4. CREATE the engagement with proper metadata and timestamps
+5. ASSOCIATE with the correct contacts, companies, deals, or tickets
+6. SET proper engagement status (completed, scheduled, etc.)
+7. FORMAT the content according to best practices
+8. CONFIRM successful creation with engagement ID and summary
+
+SPECIFIC REQUIREMENTS BY ENGAGEMENT TYPE:
+- calls: requires title, timestamp, status (complete/scheduled), duration, outcome
+- meetings: requires title, start/end time, description, location (physical/virtual)
+- emails: requires from, to, cc, subject, html/text content, timestamp
+- notes: requires title, content, timestamp, associated objects
+- tasks: requires title, type, due date, owner, priority, status
+
+Here's the engagement to log:
+
+\`\`\`
+${engagementDetails}
+\`\`\``
+          }
+        }
+      ]
+    })
+  );
+
+  // 4. Bulk Update Contacts prompt
+  server.prompt(
+    "bulk_update_contacts",
+    { contactsList: z.string() },
+    ({ contactsList }) => ({
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: `As a HubSpot contact management specialist focusing on high-volume updates, please process this list of contacts with the following optimized workflow:
+
+1. PARSE the input data into a structured format (detect CSV, JSON, etc.)
+2. VALIDATE contact identifiers (email required, others optional)
+3. ORGANIZE contacts into optimal batches (max 100 per batch for HubSpot API)
+4. CHECK for existing contacts using batch search operations
+5. SEPARATE into creation and update batches based on existence
+6. TRANSFORM data to match HubSpot property names
+7. VALIDATE email format, phone numbers, and other structured fields
+8. EXECUTE batch operations with error handling
+9. TRACK progress and identify any failed records
+10. PROVIDE detailed summary with success/failure counts and specific errors
+
+OPTIMIZATION TECHNIQUES:
+- Use crm_batch_* operations rather than individual calls
+- Prioritize email as the primary identifier
+- Handle duplicates by merging or using most recent data
+- Implement proper error handling with retry logic for failed records
+
+Here's the contact list to process:
+
+\`\`\`
+${contactsList}
+\`\`\`
+
+When complete, give me a summary of how many were updated successfully and any issues encountered.`
+          }
+        }
+      ]
+    })
+  );
+
+  // 5. Associate Contacts Companies prompt
+  server.prompt(
+    "associate_contacts_companies",
+    { associations: z.string() },
+    ({ associations }) => ({
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: `As a HubSpot association expert, please create proper relationships between these contacts and companies following this workflow:
+
+1. PARSE the relationship definitions (contacts and companies)
+2. VERIFY both contacts and companies exist in HubSpot (search by email/domain/ID)
+3. CHECK if associations already exist before creating
+4. DETERMINE the appropriate association types (primary, secondary, etc.)
+5. CREATE associations with the correct labels and categories
+6. USE batch operations for efficiency when possible
+7. VERIFY creation with association ID confirmation
+8. HANDLE special cases like multiple associations or contact transfers
+
+ASSOCIATION TYPE REFERENCE:
+- Primary association types:
+  * contact_to_company: Primary company relationship
+  * company_to_contact: Primary contact relationship
+
+- Association categories and labels:
+  * 1 (Standard): Default association
+  * 5 (Employer): Employee to employer relationship
+  * 8 (Advisor): Advisory relationship
+  * 9 (Contractor): Contract worker relationship
+
+Here are the associations to create:
+
+\`\`\`
+${associations}
+\`\`\`
+
+When finished, confirm the associations were created successfully and provide association IDs if available.`
+          }
+        }
+      ]
+    })
+  );
+
+  // 6. Manage Deals Pipeline prompt
+  server.prompt(
+    "manage_deals_pipeline",
+    { dealOperations: z.string() },
+    ({ dealOperations }) => ({
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: `As a HubSpot deal management specialist, please help me with these deal operations following this workflow:
+
+1. IDENTIFY the deal operation (create, update, move stage, close)
+2. VALIDATE required deal properties (name, amount, stage, etc.)
+3. VERIFY associated contacts and companies exist first
+4. PERFORM the requested deal operation with proper stage transitions
+5. UPDATE forecasting and probability based on stage changes
+6. MAINTAIN timeline with appropriate deal stage changes
+7. CREATE or UPDATE associated line items if provided
+8. PROVIDE summary with deal status, stage, and next recommended actions
+
+DEAL STAGES REFERENCE:
+- appointmentscheduled: Qualified to buy, appointment scheduled
+- qualifiedtobuy: Qualified to buy, no appointment yet
+- presentationscheduled: Presentation scheduled
+- decisionmakerboughtin: Decision maker bought-in
+- contractsent: Contract sent
+- closedwon: Closed won
+- closedlost: Closed lost
+
+KEY DEAL PROPERTIES:
+- dealname: Name/title of the deal
+- amount: Deal value amount (number only)
+- dealstage: Current stage in pipeline (from stages above)
+- closedate: Expected close date (YYYY-MM-DD)
+- pipeline: Pipeline ID (default is 'default')
+- dealtype: Type of deal (new, existing, etc.)
+- priority: Deal priority (low, medium, high)
+
+Here are the deal operations to perform:
+
+\`\`\`
+${dealOperations}
+\`\`\``
+          }
+        }
+      ]
+    })
+  );
+
+  // 7. Manage Marketing Preferences prompt
+  server.prompt(
+    "manage_marketing_preferences",
+    { marketingPreferences: z.string() },
+    ({ marketingPreferences }) => ({
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: `As a HubSpot compliance specialist focusing on marketing preferences, please update these contact preferences following this strict privacy-oriented workflow:
+
+1. IDENTIFY the contact(s) by email address (required field)
+2. VERIFY each contact exists in HubSpot before updating
+3. VALIDATE that consent changes include timestamp and source information
+4. UPDATE subscription preferences with proper legal basis
+5. MAINTAIN audit trail for all consent changes
+6. ENSURE GDPR/CCPA/CASL compliance for all updates
+7. HANDLE special cases (unsubscribe-all, resubscribe, etc.)
+8. PROVIDE privacy-compliant confirmation of changes
+
+SUBSCRIPTION TYPES:
+- EMAIL: Email marketing communications
+- WORKFLOW: Automated workflow emails
+- SMS: Text message marketing
+- CALL: Phone call marketing
+- GDPRSTATUS: Overall GDPR status
+
+LEGAL BASIS OPTIONS:
+- LEGITIMATE_INTEREST: Legitimate business interest
+- PERFORMANCE_OF_CONTRACT: Necessary for contract
+- CONSENT: Explicit consent provided
+- LEGAL_OBLIGATION: Required by law
+
+STATUS OPTIONS:
+- SUBSCRIBED: Actively subscribed
+- UNSUBSCRIBED: Explicitly unsubscribed
+- NOT_OPTED: No preference specified
+- OPT_IN: Pending double opt-in
+
+Here are the marketing preferences to update:
+
+\`\`\`
+${marketingPreferences}
+\`\`\``
+          }
+        }
+      ]
+    })
+  );
 
   return server.server
 }

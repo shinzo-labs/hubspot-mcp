@@ -2,3 +2,4 @@ node_modules
 .DS_STORE
 notes.txt
 dist/
+package-lock.json
