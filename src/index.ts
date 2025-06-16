@@ -2580,7 +2580,6 @@ ${engagementDetails}
     })
   );
 
-  // 4. Bulk Update Contacts prompt
   server.prompt(
     "bulk_update_contacts",
     { contactsList: z.string() },
