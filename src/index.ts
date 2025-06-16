@@ -2477,8 +2477,6 @@ function createServer({ config }: { config?: any } = {}) {
   )
 
 
-  // Register each prompt directly with the server using the MCP standard way
-  // 1. Process Lead List prompt
   server.prompt(
     "process_lead_list",
     { list: z.string() },
