@@ -2664,7 +2664,6 @@ When finished, confirm the associations were created successfully and provide as
     })
   );
 
-  // 6. Manage Deals Pipeline prompt
   server.prompt(
     "manage_deals_pipeline",
     { dealOperations: z.string() },
