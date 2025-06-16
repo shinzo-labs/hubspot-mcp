@@ -2,7 +2,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
-import { createStatelessServer } from "@smithery/sdk/server/stateless.js"
+import { createStatefulServer } from "@smithery/sdk/server/stateful.js"
 import { z } from "zod"
 
 function formatResponse(data: any) {
@@ -85,7 +85,8 @@ function createServer({ config }: { config?: any } = {}) {
 
   const { hubspotAccessToken } = getConfig(config)
 
-  // Company-specific property schema
+  // Companies: https://developers.hubspot.com/docs/reference/api/crm/objects/companies
+
   const companyPropertiesSchema = z.object({
     name: z.string().optional(),
     domain: z.string().optional(),
@@ -105,7 +106,6 @@ function createServer({ config }: { config?: any } = {}) {
     lifecyclestage: z.enum(['lead', 'customer', 'opportunity', 'subscriber', 'other']).optional(),
   }).catchall(z.any())
 
-  // Company-specific CRM endpoints
   server.tool("crm_create_company",
     "Create a new company with validated properties",
     {
@@ -283,7 +283,8 @@ function createServer({ config }: { config?: any } = {}) {
     }
   )
 
-  // CRM Object API Endpoints
+  // Objects: https://developers.hubspot.com/docs/reference/api/crm/objects/objects
+
   server.tool("crm_list_objects",
     "List CRM objects of a specific type with optional filtering and pagination",
     {
@@ -366,8 +367,8 @@ function createServer({ config }: { config?: any } = {}) {
     }
   )
 
-  server.tool("crm_delete_object",
-    "Delete a CRM object",
+  server.tool("crm_archive_object",
+    "Archive (delete) a CRM object",
     {
       objectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
       objectId: z.string()
@@ -438,6 +439,28 @@ function createServer({ config }: { config?: any } = {}) {
     }
   )
 
+  server.tool("crm_batch_read_objects",
+    "Create multiple CRM objects in a single request",
+    {
+      objectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
+      propertiesWithHistory: z.array(z.string()).optional(),
+      idProperty: z.string().optional(),
+      objectIds: z.array(z.string()),
+      properties: z.array(z.string()).optional()
+    },
+    async (params) => {
+      return handleEndpoint(async () => {
+        const endpoint = `/crm/v3/objects/${params.objectType}/batch/read`
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
+          propertiesWithHistory: params.propertiesWithHistory,
+          idProperty: params.idProperty,
+          inputs: params.objectIds.map((id: string) => ({ id })),
+          properties: params.properties
+        })
+      })
+    }
+  )
+
   server.tool("crm_batch_update_objects",
     "Update multiple CRM objects in a single request",
     {
@@ -457,23 +480,24 @@ function createServer({ config }: { config?: any } = {}) {
     }
   )
 
-  server.tool("crm_batch_delete_objects",
-    "Delete multiple CRM objects in a single request",
+  server.tool("crm_batch_archive_objects",
+    "Archive (delete) multiple CRM objects in a single request",
     {
       objectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
-      objectIds: z.array(z.string())
+      objectIds: z.array(z.string()),
     },
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/${params.objectType}/batch/archive`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
-          inputs: params.objectIds.map(id => ({ id }))
+          inputs: params.objectIds.map((id: string) => ({ id }))
         })
       })
     }
   )
 
-  // CRM Associations v4 API Endpoints
+  // Association Details: https://developers.hubspot.com/docs/reference/api/crm/associations/association-details
+
   server.tool("crm_list_association_types",
     "List all available association types for a given object type pair",
     {
@@ -530,8 +554,8 @@ function createServer({ config }: { config?: any } = {}) {
     }
   )
 
-  server.tool("crm_delete_association",
-    "Delete an association between two objects",
+  server.tool("crm_archive_association",
+    "Archive (delete) an association between two objects",
     {
       fromObjectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
       toObjectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
@@ -570,8 +594,8 @@ function createServer({ config }: { config?: any } = {}) {
     }
   )
 
-  server.tool("crm_batch_delete_associations",
-    "Delete multiple associations in a single request",
+  server.tool("crm_batch_archive_associations",
+    "Archive (delete) multiple associations in a single request",
     {
       fromObjectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
       toObjectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
@@ -590,7 +614,8 @@ function createServer({ config }: { config?: any } = {}) {
     }
   )
 
-  // Contact-specific property schema
+  // Contacts: https://developers.hubspot.com/docs/reference/api/crm/objects/contacts
+
   const contactPropertiesSchema = z.object({
     email: z.string().email().optional(),
     firstname: z.string().optional(),
@@ -612,7 +637,6 @@ function createServer({ config }: { config?: any } = {}) {
     linkedinbio: z.string().optional(),
   }).catchall(z.any())
 
-  // Contact-specific CRM endpoints
   server.tool("crm_create_contact",
     "Create a new contact with validated properties",
     {
@@ -790,7 +814,8 @@ function createServer({ config }: { config?: any } = {}) {
     }
   )
 
-  // Lead-specific property schema
+  // Leads: https://developers.hubspot.com/docs/reference/api/crm/objects/leads
+
   const leadPropertiesSchema = z.object({
     email: z.string().email().optional(),
     firstname: z.string().optional(),
@@ -813,7 +838,6 @@ function createServer({ config }: { config?: any } = {}) {
     notes: z.string().optional(),
   }).catchall(z.any())
 
-  // Lead-specific CRM endpoints
   server.tool("crm_create_lead",
     "Create a new lead with validated properties",
     {
@@ -991,7 +1015,8 @@ function createServer({ config }: { config?: any } = {}) {
     }
   )
 
-  // Meetings API Endpoints
+  // Meetings: https://developers.hubspot.com/docs/reference/api/crm/engagements/meetings
+
   server.tool("meetings_list",
     "List all meetings with optional filtering",
     {
@@ -1089,8 +1114,8 @@ function createServer({ config }: { config?: any } = {}) {
     }
   )
 
-  server.tool("meetings_delete",
-    "Delete a meeting",
+  server.tool("meetings_archive",
+    "Archive (delete) a meeting",
     {
       meetingId: z.string()
     },
@@ -1196,19 +1221,20 @@ function createServer({ config }: { config?: any } = {}) {
   server.tool("meetings_batch_archive",
     "Archive (delete) multiple meetings in a single request",
     {
-      meetingIds: z.array(z.string())
+      meetingIds: z.array(z.string()),
     },
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/meetings/batch/archive'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
-          inputs: params.meetingIds.map(id => ({ id }))
+          inputs: params.meetingIds.map((id: string) => ({ id }))
         })
       })
     }
   )
 
-  // Notes API Endpoints
+  // Notes: https://developers.hubspot.com/docs/reference/api/crm/engagements/notes
+
   const notePropertiesSchema = z.object({
     hs_note_body: z.string(),
     hs_timestamp: z.string().optional(),
@@ -1404,19 +1430,20 @@ function createServer({ config }: { config?: any } = {}) {
   server.tool("notes_batch_archive",
     "Archive (delete) multiple notes in a single request",
     {
-      noteIds: z.array(z.string())
+      noteIds: z.array(z.string()),
     },
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/notes/batch/archive'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
-          inputs: params.noteIds.map(id => ({ id }))
+          inputs: params.noteIds.map((id: string) => ({ id }))
         })
       })
     }
   )
 
-  // Tasks API Endpoints
+  // Tasks: https://developers.hubspot.com/docs/reference/api/crm/engagements/tasks
+
   const taskPropertiesSchema = z.object({
     hs_task_body: z.string(),
     hs_task_priority: z.enum(['HIGH', 'MEDIUM', 'LOW']).optional(),
@@ -1617,19 +1644,20 @@ function createServer({ config }: { config?: any } = {}) {
   server.tool("tasks_batch_archive",
     "Archive (delete) multiple tasks in a single request",
     {
-      taskIds: z.array(z.string())
+      taskIds: z.array(z.string()),
     },
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/tasks/batch/archive'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
-          inputs: params.taskIds.map(id => ({ id }))
+          inputs: params.taskIds.map((id: string) => ({ id }))
         })
       })
     }
   )
 
-  // Engagement Details API Endpoints
+  // Engagement Details: https://developers.hubspot.com/docs/reference/api/crm/engagements/engagement-details
+
   const engagementDetailsSchema = z.object({
     type: z.enum(['EMAIL', 'CALL', 'MEETING', 'TASK', 'NOTE']),
     title: z.string(),
@@ -1724,8 +1752,8 @@ function createServer({ config }: { config?: any } = {}) {
     }
   )
 
-  server.tool("engagement_details_delete",
-    "Delete an engagement",
+  server.tool("engagement_details_archive",
+    "Archive (delete) an engagement",
     {
       engagementId: z.string()
     },
@@ -1762,7 +1790,8 @@ function createServer({ config }: { config?: any } = {}) {
     }
   )
 
-  // Calls API Endpoints
+  // Calls: https://developers.hubspot.com/docs/reference/api/crm/engagements/calls
+
   const callPropertiesSchema = z.object({
     hs_call_body: z.string(),
     hs_call_direction: z.enum(['INBOUND', 'OUTBOUND']).optional(),
@@ -1964,19 +1993,20 @@ function createServer({ config }: { config?: any } = {}) {
   server.tool("calls_batch_archive",
     "Archive (delete) multiple call records in a single request",
     {
-      callIds: z.array(z.string())
+      callIds: z.array(z.string()),
     },
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/calls/batch/archive'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
-          inputs: params.callIds.map(id => ({ id }))
+          inputs: params.callIds.map((id: string) => ({ id }))
         })
       })
     }
   )
 
-  // Email API Endpoints
+  // Email: https://developers.hubspot.com/docs/reference/api/crm/engagements/email
+
   const emailPropertiesSchema = z.object({
     hs_email_subject: z.string(),
     hs_email_text: z.string(),
@@ -2185,19 +2215,20 @@ function createServer({ config }: { config?: any } = {}) {
   server.tool("emails_batch_archive",
     "Archive (delete) multiple email records in a single request",
     {
-      emailIds: z.array(z.string())
+      emailIds: z.array(z.string()),
     },
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/objects/emails/batch/archive'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
-          inputs: params.emailIds.map(id => ({ id }))
+          inputs: params.emailIds.map((id: string) => ({ id }))
         })
       })
     }
   )
 
-  // Communications API Endpoints
+  // Communications: https://developers.hubspot.com/docs/reference/api/crm/engagements/communications
+
   const communicationPreferencesSchema = z.object({
     subscriptionId: z.string(),
     status: z.enum(['SUBSCRIBED', 'UNSUBSCRIBED', 'NOT_OPTED']),
@@ -2323,7 +2354,8 @@ function createServer({ config }: { config?: any } = {}) {
     }
   )
 
-  // Batch Product Endpoints: https://developers.hubspot.com/docs/reference/api/crm/objects/products#batch
+  // Products: https://developers.hubspot.com/docs/reference/api/crm/objects/products
+
   const productPropertiesSchema = z.object({
     name: z.string().optional(),
     description: z.string().optional(),
@@ -2333,59 +2365,6 @@ function createServer({ config }: { config?: any } = {}) {
     hs_recurring_billing_period: z.string().optional(),
   }).catchall(z.any())
 
-  server.tool("products_batch_archive",
-    "Archive a batch of products by ID",
-    {
-      productIds: z.array(z.string())
-    },
-    async params => handleEndpoint(async () => {
-      const endpoint = '/crm/v3/objects/products/batch/archive'
-      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { inputs: params.productIds.map(id => ({ id })) })
-    })
-  )
-
-  server.tool("products_batch_create",
-    "Create a batch of products",
-    {
-      inputs: z.array(z.object({ properties: productPropertiesSchema }))
-    },
-    async params => handleEndpoint(async () => {
-      const endpoint = '/crm/v3/objects/products/batch/create'
-      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { inputs: params.inputs })
-    })
-  )
-
-  server.tool("products_batch_read",
-    "Read a batch of products by internal ID, or unique property values. Retrieve records by the `idProperty` parameter to retrieve records by a custom unique value property.",
-    {
-      propertiesWithHistory: z.array(z.string()),
-      idProperty: z.string().optional(),
-      inputs: z.array(z.object({ id: z.string() })),
-      properties: z.array(z.string())
-    },
-    async params => handleEndpoint(async () => {
-      const endpoint = '/crm/v3/objects/products/batch/read'
-      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { inputs: params.inputs })
-    })
-  )
-
-  server.tool("products_batch_update",
-    "Update a batch of products by internal ID, or unique values specified by the `idProperty` query param.",
-    {
-      inputs: z.array(z.object({
-        id: z.string(),
-        idProperty: z.string().optional(),
-        objectWriteTraceId: z.string().optional(),
-        properties: productPropertiesSchema
-      }))
-    },
-    async params => handleEndpoint(async () => {
-      const endpoint = '/crm/v3/objects/products/batch/update'
-      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { inputs: params.inputs })
-    })
-  )
-
-  // Basic Product Endpoints: https://developers.hubspot.com/docs/reference/api/crm/objects/products#basic
   server.tool("products_list",
     "Read a page of products. Control what is returned via the `properties` query param. `after` is the paging cursor token of the last successfully read resource will be returned as the `paging.next.after` JSON property of a paged response containing more results.",
     {
@@ -2475,6 +2454,58 @@ function createServer({ config }: { config?: any } = {}) {
     })
   )
 
+  server.tool("products_batch_archive",
+    "Archive (delete) a batch of products by ID",
+    {
+      productIds: z.array(z.string()),
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = '/crm/v3/objects/products/batch/archive'
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { inputs: params.productIds.map((id: string) => ({ id })) })
+    })
+  )
+
+  server.tool("products_batch_create",
+    "Create a batch of products",
+    {
+      inputs: z.array(z.object({ properties: productPropertiesSchema }))
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = '/crm/v3/objects/products/batch/create'
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { inputs: params.inputs })
+    })
+  )
+
+  server.tool("products_batch_read",
+    "Read a batch of products by internal ID, or unique property values. Retrieve records by the `idProperty` parameter to retrieve records by a custom unique value property.",
+    {
+      propertiesWithHistory: z.array(z.string()),
+      idProperty: z.string().optional(),
+      productIds: z.array(z.string()),
+      properties: z.array(z.string())
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = '/crm/v3/objects/products/batch/read'
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { inputs: params.productIds.map((id: string) => ({ id })) })
+    })
+  )
+
+  server.tool("products_batch_update",
+    "Update a batch of products by internal ID, or unique values specified by the `idProperty` query param.",
+    {
+      inputs: z.array(z.object({
+        id: z.string(),
+        idProperty: z.string().optional(),
+        objectWriteTraceId: z.string().optional(),
+        properties: productPropertiesSchema
+      }))
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = '/crm/v3/objects/products/batch/update'
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { inputs: params.inputs })
+    })
+  )
+
   return server.server
 }
 
@@ -2484,6 +2515,6 @@ const transport = new StdioServerTransport()
 await stdioServer.connect(transport)
 
 // Streamable HTTP Server
-const { app } = createStatelessServer(createServer)
+const { app } = createStatefulServer(createServer)
 const PORT = process.env.PORT || 3000
 app.listen(PORT)

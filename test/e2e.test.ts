@@ -1,14 +1,15 @@
 import { StdioClientTransport, StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
-import { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js'
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { CallToolRequest, JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js'
 import path from 'path'
 
 const RESPONSE_TIMEOUT = 1_000 // 1s
 const START_DELAY = 1_000 // 1s
 const TEST_TIMEOUT = 10_000 // 10s
-const SEARCH_DELAY = 8 // 10s
+const SEARCH_DELAY = 8 // 8s
 
-const TOTAL_TOOLS = 111
+const TOTAL_TOOLS = 112
 
 const streamableClientUrl = new URL(`http://localhost:${process.env.PORT || 3000}/mcp`)
 
@@ -26,17 +27,14 @@ type ReadMessageType = {
   }
 }
 
+type JSONRPCMessageWithParams = JSONRPCMessage & {
+  params?: CallToolRequest["params"]
+}
+
 // In some tests the argument IDs in this object are modified, ensure the ID is always set per-test where relevant
-const jsonRpcMessage: Record<string, JSONRPCMessage> = {
+const jsonRpcMessage: Record<string, JSONRPCMessageWithParams> = {
   ping: { jsonrpc: "2.0", id: 1, method: "ping" },
   pong: { jsonrpc: '2.0', id: 1, result: {} },
-  initialize: {
-    jsonrpc: "2.0", id: 1, method: "initialize", params: {
-      clientInfo: { name: "test-client", version: "1.0" },
-      protocolVersion: "2025-05-13",
-      capabilities: {},
-    }
-  },
   toolsList: { jsonrpc: "2.0", id: 1, method: "tools/list" },
   crmCreateCompany: { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
     name: "crm_create_company",
@@ -88,8 +86,8 @@ const jsonRpcMessage: Record<string, JSONRPCMessage> = {
       }]
     }
   } },
-  crmDeleteObject: { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
-    name: "crm_delete_object",
+  crmArchiveObject: { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
+    name: "crm_archive_object",
     arguments: {
       objectType: "companies",
       objectId: "test-id"
@@ -172,50 +170,114 @@ const jsonRpcMessage: Record<string, JSONRPCMessage> = {
   productsBatchArchive: { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
     name: "products_batch_archive",
     arguments: {}
+  } },
+  crmBatchReadObjects: { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
+    name: "crm_batch_read_objects",
+    arguments: {
+      objectType: "companies",
+      propertiesWithHistory: ["name", "domain"],
+      inputs: [{ id: "test-id" }],
+      properties: ["name", "domain"]
+    }
+  } },
+  crmListObjects: { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
+    name: "crm_list_objects",
+    arguments: {
+      objectType: "companies",
+      limit: 100,
+      properties: ["name", "domain"]
+    }
+  } },
+  crmCreateObject: { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
+    name: "crm_create_object",
+    arguments: {
+      objectType: "companies",
+      properties: {
+        name: "Test Company",
+        domain: "test.com",
+        website: "https://test.com",
+        description: "Test Description",
+        industry: "CONSUMER_SERVICES",
+        numberofemployees: 10,
+        annualrevenue: 100000,
+        city: "Test City",
+        state: "Test State",
+        country: "Test Country",
+        phone: "1234567890",
+        address: "Test Address",
+        address2: "Test Address 2",
+        zip: "123456",
+        type: "PARTNER",
+        lifecyclestage: "lead"
+      }
+    }
+  } },
+  crmGetObject: { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
+    name: "crm_get_object",
+    arguments: {
+      objectType: "companies",
+      objectId: "test-id",
+      properties: ["name", "domain"]
+    }
+  } },
+  crmUpdateObject: { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
+    name: "crm_update_object",
+    arguments: {
+      objectType: "companies",
+      objectId: "test-id",
+      properties: {
+        name: "Test Company Updated",
+        domain: "updated-test.com"
+      }
+    }
+  } },
+  crmSearchObjects: { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
+    name: "crm_search_objects",
+    arguments: {
+      objectType: "companies",
+      filterGroups: [{
+        filters: [{
+          propertyName: "name",
+          operator: "CONTAINS_TOKEN",
+          value: "Test Company"
+        }]
+      }],
+      properties: ["name", "domain"]
+    }
+  } },
+  crmBatchCreateObjects: { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
+    name: "crm_batch_create_objects",
+    arguments: {
+      objectType: "companies",
+      inputs: [
+        { properties: { name: "Test Company 1", domain: "test1.com", type: "PARTNER", lifecyclestage: "lead" } },
+        { properties: { name: "Test Company 2", domain: "test2.com", type: "PARTNER", lifecyclestage: "lead" } }
+      ]
+    }
+  } },
+  crmBatchUpdateObjects: { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
+    name: "crm_batch_update_objects",
+    arguments: {
+      objectType: "companies",
+      inputs: [
+        { id: "test-id", properties: { name: "Updated Company 1", type: "PARTNER" } },
+        { id: "test-id", properties: { name: "Updated Company 2", type: "PARTNER" } }
+      ]
+    }
+  } },
+  crmBatchArchiveObjects: { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
+    name: "crm_batch_archive_objects",
+    arguments: {
+      objectType: "companies",
+      inputs: [{ id: "test-id" }]
+    }
   } }
 }
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-const sendPostRequest = async (message: JSONRPCMessage | JSONRPCMessage[], sessionId?: string) => (
-  fetch(streamableClientUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json, text/event-stream",
-      ...(sessionId ? { "mcp-session-id": sessionId } : {}),
-    },
-    body: JSON.stringify(message),
-  })
-)
-
-const getSSEData = async (response: Response) => {
-  const reader = response.body?.getReader()
-  let buffer = ''
-  while (true) {
-    const { value, done } = await reader!.read()
-    if (done) break
-    buffer += new TextDecoder().decode(value)
-
-    const lines = buffer.split('\n')
-    for (const line of lines) {
-      if (line.startsWith('data:')) {
-        try {
-          return JSON.parse(line.slice(5).trim())
-        } catch (e) {
-          // Ignore and continue accumulating
-        }
-      }
-    }
-    // Keep only the last (possibly incomplete) line in buffer
-    buffer = lines[lines.length - 1]
-  }
-  throw new Error('No complete data line found')
-}
-
 describe('Hubspot MCP', () => {
   let stdioClient: StdioClientTransport
-  let streamableClient: StreamableHTTPClientTransport
 
   beforeAll(async () => {
     const serverParameters: StdioServerParameters = {
@@ -226,7 +288,6 @@ describe('Hubspot MCP', () => {
 
     stdioClient = new StdioClientTransport(serverParameters)
     await stdioClient.start()
-    streamableClient = new StreamableHTTPClientTransport(streamableClientUrl)
   })
 
   afterAll(async () => {
@@ -239,6 +300,8 @@ describe('Hubspot MCP', () => {
     let companyId: string
     let productId: string
     let batchProductIds: string[]
+    let crmObjectId: string
+    let crmBatchObjectIds: string[]
 
     beforeAll(async () => {
       await delay(START_DELAY)
@@ -281,7 +344,8 @@ describe('Hubspot MCP', () => {
     })
 
     it('can call the crm_get_company tool', async () => {
-      jsonRpcMessage.crmGetCompany["params"].arguments.companyId = companyId
+      if (!jsonRpcMessage.crmGetCompany.params?.arguments) throw new Error('Missing params or arguments')
+      jsonRpcMessage.crmGetCompany.params.arguments.companyId = companyId
       stdioClient.send(jsonRpcMessage.crmGetCompany)
       await delay(RESPONSE_TIMEOUT)
 
@@ -293,7 +357,8 @@ describe('Hubspot MCP', () => {
     })
 
     it('can call the crm_update_company tool', async () => {
-      jsonRpcMessage.crmUpdateCompany["params"].arguments.companyId = companyId
+      const params = jsonRpcMessage.crmUpdateCompany.params as CallToolRequest["params"]
+      if (params?.arguments) params.arguments.companyId = companyId
       stdioClient.send(jsonRpcMessage.crmUpdateCompany)
       await delay(RESPONSE_TIMEOUT)
 
@@ -318,9 +383,10 @@ describe('Hubspot MCP', () => {
       expect(results.results[0].id).toEqual(companyId)
     })
 
-    it('can call the crm_delete_object tool', async () => {
-      jsonRpcMessage.crmDeleteObject["params"].arguments.objectId = companyId
-      stdioClient.send(jsonRpcMessage.crmDeleteObject)
+    it('can call the crm_archive_object tool', async () => {
+      const params = jsonRpcMessage.crmArchiveObject.params as CallToolRequest["params"]
+      if (params?.arguments) params.arguments.objectId = companyId
+      stdioClient.send(jsonRpcMessage.crmArchiveObject)
       await delay(RESPONSE_TIMEOUT)
 
       expect(readMessages).toHaveLength(1)
@@ -340,7 +406,8 @@ describe('Hubspot MCP', () => {
     })
 
     it('can call the products_read tool', async () => {
-      jsonRpcMessage.productsRead["params"].arguments.productId = productId
+      const params = jsonRpcMessage.productsRead.params as CallToolRequest["params"]
+      if (params?.arguments) params.arguments.productId = productId
       stdioClient.send(jsonRpcMessage.productsRead)
       await delay(RESPONSE_TIMEOUT)
       expect(readMessages).toHaveLength(1)
@@ -351,7 +418,8 @@ describe('Hubspot MCP', () => {
     })
 
     it('can call the products_update tool', async () => {
-      jsonRpcMessage.productsUpdate["params"].arguments.productId = productId
+      const params = jsonRpcMessage.productsUpdate.params as CallToolRequest["params"]
+      if (params?.arguments) params.arguments.productId = productId
       stdioClient.send(jsonRpcMessage.productsUpdate)
       await delay(RESPONSE_TIMEOUT)
       expect(readMessages).toHaveLength(1)
@@ -385,7 +453,8 @@ describe('Hubspot MCP', () => {
     })
 
     it('can call the products_archive tool', async () => {
-      jsonRpcMessage.productsArchive["params"].arguments.productId = productId
+      const params = jsonRpcMessage.productsArchive.params as CallToolRequest["params"]
+      if (params?.arguments) params.arguments.productId = productId
       stdioClient.send(jsonRpcMessage.productsArchive)
       await delay(RESPONSE_TIMEOUT)
       expect(readMessages).toHaveLength(1)
@@ -405,7 +474,8 @@ describe('Hubspot MCP', () => {
     })
 
     it('can call the products_batch_read tool', async () => {
-      jsonRpcMessage.productsBatchRead["params"].arguments.inputs = batchProductIds.map(id => ({ id }))
+      const params = jsonRpcMessage.productsBatchRead.params as CallToolRequest["params"]
+      if (params?.arguments) params.arguments.productIds = batchProductIds
       stdioClient.send(jsonRpcMessage.productsBatchRead)
       await delay(RESPONSE_TIMEOUT)
       expect(readMessages).toHaveLength(1)
@@ -416,7 +486,8 @@ describe('Hubspot MCP', () => {
     })
 
     it('can call the products_batch_update tool', async () => {
-      jsonRpcMessage.productsBatchUpdate["params"].arguments.inputs = batchProductIds.map(id => ({ 
+      const params = jsonRpcMessage.productsBatchUpdate.params as CallToolRequest["params"]
+      if (params?.arguments) params.arguments.inputs = batchProductIds.map(id => ({ 
         id, 
         properties: { name: `Batch Updated Product ${id}` }
       }))
@@ -430,138 +501,250 @@ describe('Hubspot MCP', () => {
     })
 
     it('can call the products_batch_archive tool', async () => {
-      jsonRpcMessage.productsBatchArchive["params"].arguments.productIds = batchProductIds
+      const params = jsonRpcMessage.productsBatchArchive.params as CallToolRequest["params"]
+      if (params?.arguments) params.arguments.productIds = batchProductIds
       stdioClient.send(jsonRpcMessage.productsBatchArchive)
       await delay(RESPONSE_TIMEOUT)
       expect(readMessages).toHaveLength(1)
       expect(readMessages[0].result.content?.length).toEqual(1)
     })
+
+    describe('CRM Object Operations', () => {
+      it('can call the crm_create_object tool', async () => {
+        stdioClient.send(jsonRpcMessage.crmCreateObject)
+        await delay(RESPONSE_TIMEOUT)
+        expect(readMessages).toHaveLength(1)
+        expect(readMessages[0].result.content?.length).toEqual(1)
+
+        const result = JSON.parse(readMessages[0].result.content?.[0].text ?? '{}')
+        expect(result.properties.name).toEqual('Test Company')
+        expect(result.properties.domain).toEqual('test.com')
+        crmObjectId = result.id
+      })
+
+      it('can call the crm_get_object tool', async () => {
+        const params = jsonRpcMessage.crmGetObject.params as CallToolRequest["params"]
+        if (params?.arguments) params.arguments.objectId = crmObjectId
+        stdioClient.send(jsonRpcMessage.crmGetObject)
+        await delay(RESPONSE_TIMEOUT)
+        expect(readMessages).toHaveLength(1)
+        expect(readMessages[0].result.content?.length).toEqual(1)
+
+        const result = JSON.parse(readMessages[0].result.content?.[0].text ?? '{}')
+        expect(result.properties.name).toEqual('Test Company')
+        expect(result.properties.domain).toEqual('test.com')
+      })
+
+      it('can call the crm_update_object tool', async () => {
+        const params = jsonRpcMessage.crmUpdateObject.params as CallToolRequest["params"]
+        if (params?.arguments) params.arguments.objectId = crmObjectId
+        stdioClient.send(jsonRpcMessage.crmUpdateObject)
+        await delay(RESPONSE_TIMEOUT)
+        expect(readMessages).toHaveLength(1)
+        expect(readMessages[0].result.content?.length).toEqual(1)
+
+        const result = JSON.parse(readMessages[0].result.content?.[0].text ?? '{}')
+        expect(result.properties.name).toEqual('Test Company Updated')
+        expect(result.properties.domain).toEqual('updated-test.com')
+      })
+
+      it('can call the crm_search_objects tool', async () => {
+        await delay(RESPONSE_TIMEOUT * SEARCH_DELAY) // Wait for indexing
+        stdioClient.send(jsonRpcMessage.crmSearchObjects)
+        await delay(RESPONSE_TIMEOUT)
+        expect(readMessages).toHaveLength(1)
+        expect(readMessages[0].result.content?.length).toEqual(1)
+
+        const result = JSON.parse(readMessages[0].result.content?.[0].text ?? '{}')
+        expect(Array.isArray(result.results)).toBe(true)
+        expect(result.results.length).toBeGreaterThan(0)
+        expect(result.results[0].id).toEqual(crmObjectId)
+      })
+
+      it('can call the crm_list_objects tool', async () => {
+        stdioClient.send(jsonRpcMessage.crmListObjects)
+        await delay(RESPONSE_TIMEOUT)
+        expect(readMessages).toHaveLength(1)
+        expect(readMessages[0].result.content?.length).toEqual(1)
+
+        const result = JSON.parse(readMessages[0].result.content?.[0].text ?? '{}')
+        expect(Array.isArray(result.results)).toBe(true)
+        expect(result.results.length).toBeGreaterThan(0)
+        const foundObject = result.results.find((obj: any) => obj.id === crmObjectId)
+        expect(foundObject).toBeDefined()
+      })
+
+      it('can call the crm_batch_create_objects tool', async () => {
+        stdioClient.send(jsonRpcMessage.crmBatchCreateObjects)
+        await delay(RESPONSE_TIMEOUT)
+        expect(readMessages).toHaveLength(1)
+        expect(readMessages[0].result.content?.length).toEqual(1)
+
+        const result = JSON.parse(readMessages[0].result.content?.[0].text ?? '{}')
+        expect(Array.isArray(result.results)).toBe(true)
+        expect(result.results.length).toBe(2)
+        crmBatchObjectIds = result.results.map((obj: any) => obj.id)
+      })
+
+      it('can call the crm_batch_read_objects tool', async () => {
+        const params = jsonRpcMessage.crmBatchReadObjects.params as CallToolRequest["params"]
+        if (params?.arguments) params.arguments.objectIds = crmBatchObjectIds
+        stdioClient.send(jsonRpcMessage.crmBatchReadObjects)
+        await delay(RESPONSE_TIMEOUT)
+        expect(readMessages).toHaveLength(1)
+        expect(readMessages[0].result.content?.length).toEqual(1)
+
+        const result = JSON.parse(readMessages[0].result.content?.[0].text ?? '{}')
+        expect(Array.isArray(result.results)).toBe(true)
+        expect(result.results.length).toBe(2)
+        expect(result.results[0].properties.name).toBeDefined()
+        expect(result.results[0].properties.domain).toBeDefined()
+        expect(result.results[1].properties.name).toBeDefined()
+        expect(result.results[1].properties.domain).toBeDefined()
+      })
+
+      it('can call the crm_batch_update_objects tool', async () => {
+        const params = jsonRpcMessage.crmBatchUpdateObjects.params as CallToolRequest["params"]
+        if (params?.arguments) params.arguments.inputs = crmBatchObjectIds.map((id, index) => ({
+          id,
+          properties: { name: `Updated Company ${index + 1}`, type: "PARTNER" }
+        }))
+        stdioClient.send(jsonRpcMessage.crmBatchUpdateObjects)
+        await delay(RESPONSE_TIMEOUT)
+        expect(readMessages).toHaveLength(1)
+        expect(readMessages[0].result.content?.length).toEqual(1)
+
+        const result = JSON.parse(readMessages[0].result.content?.[0].text ?? '{}')
+        expect(Array.isArray(result.results)).toBe(true)
+        expect(result.results.length).toBe(2)
+      })
+
+      it('can call the crm_batch_archive_objects tool', async () => {
+        const params = jsonRpcMessage.crmBatchArchiveObjects.params as CallToolRequest["params"]
+        if (params?.arguments) params.arguments.objectIds = crmBatchObjectIds
+        stdioClient.send(jsonRpcMessage.crmBatchArchiveObjects)
+        await delay(RESPONSE_TIMEOUT)
+        expect(readMessages).toHaveLength(1)
+        expect(readMessages[0].result.content?.length).toEqual(1)
+      })
+
+      it('can call the crm_archive_object tool', async () => {
+        const params = jsonRpcMessage.crmArchiveObject.params as CallToolRequest["params"]
+        if (params?.arguments) params.arguments.objectId = crmObjectId
+        stdioClient.send(jsonRpcMessage.crmArchiveObject)
+        await delay(RESPONSE_TIMEOUT)
+        expect(readMessages).toHaveLength(1)
+        expect(readMessages[0].result.content?.length).toEqual(1)
+        expect(readMessages[0].result.content?.[0].text).toEqual(`No data returned: Status 204`)
+      })
+    })
   })
 
   describe('Streamable HTTP Transport', () => {
+    let streamableClient: Client = new Client({
+      name: 'streamable-test-client',
+      version: '1.0.0'
+    })
+
     let companyId: string
     let productId: string
     let batchProductIds: string[]
+    let crmObjectId: string
+    let crmBatchObjectIds: string[]
+
+    beforeAll(async () => {
+      let transport = new StreamableHTTPClientTransport(streamableClientUrl)
+      await streamableClient.connect(transport)
+    })
 
     it('responds to ping', async () => {
-      const response = await sendPostRequest(jsonRpcMessage.ping)
-      expect(response.status).toBe(200)
-
-      const sseResponse = await getSSEData(response)
-      expect(sseResponse).toEqual(jsonRpcMessage.pong)
+      const response = await streamableClient.ping()
+      expect(response).toEqual({})
     })
 
     it('returns a list of tools', async () => {
-      const response = await sendPostRequest(jsonRpcMessage.toolsList)
-      expect(response.status).toBe(200)
-
-      const sseResponse = await getSSEData(response)
-      expect(sseResponse.result.tools?.length).toEqual(TOTAL_TOOLS)
+      const response = await streamableClient.listTools()
+      expect(response.tools.length).toEqual(TOTAL_TOOLS)
     })
 
     it('can call the crm_create_company tool', async () => {
-      const response = await sendPostRequest(jsonRpcMessage.crmCreateCompany)
-      expect(response.status).toBe(200)
+      const params = jsonRpcMessage.crmCreateCompany.params as CallToolRequest["params"]
+      const response = await streamableClient.callTool(params)
+      const company = JSON.parse(response.content?.[0].text ?? '{}')
+      expect(response.content?.[0].type).toBe('text')
 
-      const sseResponse = await getSSEData(response)
-      expect(sseResponse.result.content?.length).toEqual(1)
-
-      const company = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
-      expect(company.properties.name).toEqual('Test Company')
       companyId = company.id
     })
 
     it('can call the crm_get_company tool', async () => {
-      jsonRpcMessage.crmGetCompany["params"].arguments.companyId = companyId
-      const response = await sendPostRequest(jsonRpcMessage.crmGetCompany)
-      expect(response.status).toBe(200)
+      const params = jsonRpcMessage.crmGetCompany.params as CallToolRequest["params"]
+      if (params?.arguments) params.arguments.companyId = companyId
+      const response = await streamableClient.callTool(params)
 
-      const sseResponse = await getSSEData(response)
-      expect(sseResponse.result.content?.length).toEqual(1)
-
-      const company = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
+      const company = JSON.parse(response.content?.[0].text ?? '{}')
       expect(company.properties.name).toEqual('Test Company')
     })
 
     it('can call the crm_update_company tool', async () => {
-      jsonRpcMessage.crmUpdateCompany["params"].arguments.companyId = companyId
-      const response = await sendPostRequest(jsonRpcMessage.crmUpdateCompany)
-      expect(response.status).toBe(200)
+      const params = jsonRpcMessage.crmUpdateCompany.params as CallToolRequest["params"]
+      if (params?.arguments) params.arguments.companyId = companyId
+      const response = await streamableClient.callTool(params)
 
-      const sseResponse = await getSSEData(response)
-      expect(sseResponse.result.content?.length).toEqual(1)
-
-      const updated = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
+      const updated = JSON.parse(response.content?.[0].text ?? '{}')
       expect(updated.properties.name).toEqual('Test Company Updated')
     })
 
     it('can call the crm_search_companies tool', async () => {
       await delay(RESPONSE_TIMEOUT * SEARCH_DELAY) // Wait additional time to ensure the company is indexed
-      const response = await sendPostRequest(jsonRpcMessage.crmSearchCompanies)
-      expect(response.status).toBe(200)
+      const params = jsonRpcMessage.crmSearchCompanies.params as CallToolRequest["params"]
+      const response = await streamableClient.callTool(params)
 
-      const sseResponse = await getSSEData(response)
-      expect(sseResponse.result.content?.length).toEqual(1)
-
-      const results = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
+      const results = JSON.parse(response.content?.[0].text ?? '{}')
       expect(Array.isArray(results.results)).toBe(true)
       expect(results.results.length).toBeGreaterThan(0)
       expect(results.results[0].id).toEqual(companyId)
     })
 
-    it('can call the crm_delete_object tool', async () => {
-      jsonRpcMessage.crmDeleteObject["params"].arguments.objectId = companyId
-      const response = await sendPostRequest(jsonRpcMessage.crmDeleteObject)
-      expect(response.status).toBe(200)
-
-      const sseResponse = await getSSEData(response)
-      expect(sseResponse.result.content?.[0].text).toEqual(`No data returned: Status 204`)
+    it('can call the crm_archive_object tool', async () => {
+      if (!companyId) throw new Error('No company ID available')
+      const params = jsonRpcMessage.crmArchiveObject.params as CallToolRequest["params"]
+      if (params?.arguments) params.arguments.objectId = companyId
+      const response = await streamableClient.callTool(params)
+      expect(response.content?.[0].text).toEqual(`No data returned: Status 204`)
     })
 
     it('can call the products_create tool', async () => {
-      const response = await sendPostRequest(jsonRpcMessage.productsCreate)
-      expect(response.status).toBe(200)
+      const params = jsonRpcMessage.productsCreate.params as CallToolRequest["params"]
+      const response = await streamableClient.callTool(params)
 
-      const sseResponse = await getSSEData(response)
-      expect(sseResponse.result.content?.length).toEqual(1)
-
-      const product = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
+      const product = JSON.parse(response.content?.[0].text ?? '{}')
       expect(product.properties.name).toEqual('Test Product')
       productId = product.id
     })
 
     it('can call the products_read tool', async () => {
-      jsonRpcMessage.productsRead["params"].arguments.productId = productId
-      const response = await sendPostRequest(jsonRpcMessage.productsRead)
-      expect(response.status).toBe(200)
+      const params = jsonRpcMessage.productsRead.params as CallToolRequest["params"]
+      if (params?.arguments) params.arguments.productId = productId
+      const response = await streamableClient.callTool(params)
 
-      const sseResponse = await getSSEData(response)
-      expect(sseResponse.result.content?.length).toEqual(1)
-
-      const product = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
+      const product = JSON.parse(response.content?.[0].text ?? '{}')
       expect(product.properties.name).toEqual('Test Product')
-    })  
+    })
 
     it('can call the products_update tool', async () => {
-      jsonRpcMessage.productsUpdate["params"].arguments.productId = productId
-      const response = await sendPostRequest(jsonRpcMessage.productsUpdate)
-      expect(response.status).toBe(200)
+      const params = jsonRpcMessage.productsUpdate.params as CallToolRequest["params"]
+      if (params?.arguments) params.arguments.productId = productId
+      const response = await streamableClient.callTool(params)
 
-      const sseResponse = await getSSEData(response)
-      expect(sseResponse.result.content?.length).toEqual(1)
-
-      const updated = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
+      const updated = JSON.parse(response.content?.[0].text ?? '{}')
       expect(updated.properties.name).toEqual('Test Product Updated')
     })
 
     it('can call the products_list tool', async () => {
-      const response = await sendPostRequest(jsonRpcMessage.productsList)
-      expect(response.status).toBe(200)
+      const params = jsonRpcMessage.productsList.params as CallToolRequest["params"]
+      const response = await streamableClient.callTool(params)
 
-      const sseResponse = await getSSEData(response)
-      expect(sseResponse.result.content?.length).toEqual(1)
-
-      const results = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
+      const results = JSON.parse(response.content?.[0].text ?? '{}')
       expect(Array.isArray(results.results)).toBe(true)
       expect(results.results.length).toBeGreaterThan(0)
       expect(results.results[0].id).toEqual(productId)
@@ -569,77 +752,170 @@ describe('Hubspot MCP', () => {
 
     it('can call the products_search tool', async () => {
       await delay(RESPONSE_TIMEOUT * SEARCH_DELAY) // Wait additional time to ensure the product is indexed
-      const response = await sendPostRequest(jsonRpcMessage.productsSearch)
-      expect(response.status).toBe(200)
+      const params = jsonRpcMessage.productsSearch.params as CallToolRequest["params"]
+      const response = await streamableClient.callTool(params)
 
-      const sseResponse = await getSSEData(response)
-      expect(sseResponse.result.content?.length).toEqual(1)
-
-      const results = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
+      const results = JSON.parse(response.content?.[0].text ?? '{}')
       expect(Array.isArray(results.results)).toBe(true)
       expect(results.results.length).toBeGreaterThan(0)
       expect(results.results[0].id).toEqual(productId)
     })
 
     it('can call the products_archive tool', async () => {
-      jsonRpcMessage.productsArchive["params"].arguments.productId = productId
-      const response = await sendPostRequest(jsonRpcMessage.productsArchive)
-      expect(response.status).toBe(200)
+      const params = jsonRpcMessage.productsArchive.params as CallToolRequest["params"]
+      if (params?.arguments) params.arguments.productId = productId
+      const response = await streamableClient.callTool(params)
 
-      const sseResponse = await getSSEData(response)
-      expect(sseResponse.result.content?.[0].text).toEqual(`No data returned: Status 204`)
+      expect(response.content?.[0].text).toEqual(`No data returned: Status 204`)
     })
 
     it('can call the products_batch_create tool', async () => {
-      jsonRpcMessage.productsBatchCreate["params"].arguments.inputs = [
+      const params = jsonRpcMessage.productsBatchCreate.params as CallToolRequest["params"]
+      if (params?.arguments) params.arguments.inputs = [
         { properties: { name: "Test Product" } },
         { properties: { name: "Test Product 2" } }
       ]
-      const response = await sendPostRequest(jsonRpcMessage.productsBatchCreate)
-      expect(response.status).toBe(200)
+      const response = await streamableClient.callTool(params)
 
-      const sseResponse = await getSSEData(response)
-      expect(sseResponse.result.content?.length).toEqual(1)
-
-      const result = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
+      const result = JSON.parse(response.content?.[0].text ?? '{}')
       expect(Array.isArray(result.results)).toBe(true)
       batchProductIds = result.results.map((p: any) => p.id)
     })
 
     it('can call the products_batch_read tool', async () => {
-      jsonRpcMessage.productsBatchRead["params"].arguments.inputs = batchProductIds.map(id => ({ id }))
-      const response = await sendPostRequest(jsonRpcMessage.productsBatchRead)
-      expect(response.status).toBe(200)
+      const params = jsonRpcMessage.productsBatchRead.params as CallToolRequest["params"]
+      if (params?.arguments) params.arguments.productIds = batchProductIds
+      const response = await streamableClient.callTool(params)
 
-      const sseResponse = await getSSEData(response)
-      expect(sseResponse.result.content?.length).toEqual(1)
-
-      const result = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
+      const result = JSON.parse(response.content?.[0].text ?? '{}')
       expect(Array.isArray(result.results)).toBe(true)
     })
 
     it('can call the products_batch_update tool', async () => {
-      jsonRpcMessage.productsBatchUpdate["params"].arguments.inputs = batchProductIds.map(id => ({ 
+      const params = jsonRpcMessage.productsBatchUpdate.params as CallToolRequest["params"]
+      if (params?.arguments) params.arguments.inputs = batchProductIds.map(id => ({ 
         id, 
         properties: { name: `Batch Updated Product ${id}` }
       }))
-      const response = await sendPostRequest(jsonRpcMessage.productsBatchUpdate)
-      expect(response.status).toBe(200)
+      const response = await streamableClient.callTool(params)
 
-      const sseResponse = await getSSEData(response)
-      expect(sseResponse.result.content?.length).toEqual(1)
-
-      const result = JSON.parse(sseResponse.result.content?.[0].text ?? '{}')
+      const result = JSON.parse(response.content?.[0].text ?? '{}')
       expect(Array.isArray(result.results)).toBe(true)
     })
 
     it('can call the products_batch_archive tool', async () => {
-      jsonRpcMessage.productsBatchArchive["params"].arguments.productIds = batchProductIds
-      const response = await sendPostRequest(jsonRpcMessage.productsBatchArchive)
-      expect(response.status).toBe(200)
+      const params = jsonRpcMessage.productsBatchArchive.params as CallToolRequest["params"]
+      if (params?.arguments) params.arguments.productIds = batchProductIds
+      const response = await streamableClient.callTool(params)
 
-      const sseResponse = await getSSEData(response)
-      expect(sseResponse.result.content?.[0].text).toEqual(`No data returned: Status 204`)
+      expect(response.content?.[0].text).toEqual(`No data returned: Status 204`)
+    })
+
+    describe('CRM Object Operations', () => {
+      it('can call the crm_create_object tool', async () => {
+        const params = jsonRpcMessage.crmCreateObject.params as CallToolRequest["params"]
+        const response = await streamableClient.callTool(params)
+
+        const result = JSON.parse(response.content?.[0].text ?? '{}')
+        expect(result.properties.name).toEqual('Test Company')
+        expect(result.properties.domain).toEqual('test.com')
+        crmObjectId = result.id
+      })
+
+      it('can call the crm_get_object tool', async () => {
+        const params = jsonRpcMessage.crmGetObject.params as CallToolRequest["params"]
+        if (params?.arguments) params.arguments.objectId = crmObjectId
+        const response = await streamableClient.callTool(params)
+
+        const result = JSON.parse(response.content?.[0].text ?? '{}')
+        expect(result.properties.name).toEqual('Test Company')
+        expect(result.properties.domain).toEqual('test.com')
+      })
+
+      it('can call the crm_update_object tool', async () => {
+        const params = jsonRpcMessage.crmUpdateObject.params as CallToolRequest["params"]
+        if (params?.arguments) params.arguments.objectId = crmObjectId
+        const response = await streamableClient.callTool(params)
+
+        const result = JSON.parse(response.content?.[0].text ?? '{}')
+        expect(result.properties.name).toEqual('Test Company Updated')
+        expect(result.properties.domain).toEqual('updated-test.com')
+      })
+
+      it('can call the crm_search_objects tool', async () => {
+        await delay(RESPONSE_TIMEOUT * SEARCH_DELAY) // Wait for indexing
+        const params = jsonRpcMessage.crmSearchObjects.params as CallToolRequest["params"]
+        const response = await streamableClient.callTool(params)
+
+        const result = JSON.parse(response.content?.[0].text ?? '{}')
+        expect(Array.isArray(result.results)).toBe(true)
+        expect(result.results.length).toBeGreaterThan(0)
+        expect(result.results[0].id).toEqual(crmObjectId)
+      })
+
+      it('can call the crm_list_objects tool', async () => {
+        const params = jsonRpcMessage.crmListObjects.params as CallToolRequest["params"]
+        const response = await streamableClient.callTool(params)
+
+        const result = JSON.parse(response.content?.[0].text ?? '{}')
+        expect(Array.isArray(result.results)).toBe(true)
+        expect(result.results.length).toBeGreaterThan(0)
+        const foundObject = result.results.find((obj: any) => obj.id === crmObjectId)
+        expect(foundObject).toBeDefined()
+      })
+
+      it('can call the crm_batch_create_objects tool', async () => {
+        const params = jsonRpcMessage.crmBatchCreateObjects.params as CallToolRequest["params"]
+        const response = await streamableClient.callTool(params)
+
+        const result = JSON.parse(response.content?.[0].text ?? '{}')
+        expect(Array.isArray(result.results)).toBe(true)
+        expect(result.results.length).toBe(2)
+        crmBatchObjectIds = result.results.map((obj: any) => obj.id)
+      })
+
+      it('can call the crm_batch_read_objects tool', async () => {
+        const params = jsonRpcMessage.crmBatchReadObjects.params as CallToolRequest["params"]
+        if (params?.arguments) params.arguments.objectIds = crmBatchObjectIds
+        const response = await streamableClient.callTool(params)
+
+        const result = JSON.parse(response.content?.[0].text ?? '{}')
+        expect(Array.isArray(result.results)).toBe(true)
+        expect(result.results.length).toBe(2)
+        expect(result.results[0].properties.name).toBeDefined()
+        expect(result.results[0].properties.domain).toBeDefined()
+        expect(result.results[1].properties.name).toBeDefined()
+        expect(result.results[1].properties.domain).toBeDefined()
+      })
+
+      it('can call the crm_batch_update_objects tool', async () => {
+        const params = jsonRpcMessage.crmBatchUpdateObjects.params as CallToolRequest["params"]
+        if (params?.arguments) params.arguments.inputs = crmBatchObjectIds.map((id, index) => ({
+          id,
+          properties: { name: `Updated Company ${index + 1}`, type: "PARTNER" }
+        }))
+        const response = await streamableClient.callTool(params)
+
+        const result = JSON.parse(response.content?.[0].text ?? '{}')
+        expect(Array.isArray(result.results)).toBe(true)
+        expect(result.results.length).toBe(2)
+      })
+
+      it('can call the crm_batch_archive_objects tool', async () => {
+        const params = jsonRpcMessage.crmBatchArchiveObjects.params as CallToolRequest["params"]
+        if (params?.arguments) params.arguments.objectIds = crmBatchObjectIds
+        const response = await streamableClient.callTool(params)
+
+        expect(response.content?.[0].text).toEqual(`No data returned: Status 204`)
+      })
+
+      it('can call the crm_archive_object tool', async () => {
+        const params = jsonRpcMessage.crmArchiveObject.params as CallToolRequest["params"]
+        if (params?.arguments) params.arguments.objectId = crmObjectId
+        const response = await streamableClient.callTool(params)
+
+        expect(response.content?.[0].text).toEqual(`No data returned: Status 204`)
+      })
     })
   })
 })
