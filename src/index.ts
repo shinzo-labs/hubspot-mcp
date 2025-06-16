@@ -5,7 +5,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { createStatefulServer } from "@smithery/sdk/server/stateful.js"
 import { z } from "zod"
 
-const OBJECT_TYPES: [string, ...string[]] = ['companies', 'contacts', 'deals', 'feedback_submissions', 'tickets', 'products', 'line_items', 'quotes', 'custom']
+const OBJECT_TYPES: [string, ...string[]] = ['calls', 'companies', 'contacts', 'custom', 'deals', 'emails', 'feedback_submissions', 'line_items', 'meetings', 'notes', 'products', 'quotes', 'tasks', 'tickets']
 
 function formatResponse(data: any) {
   let text = ''
