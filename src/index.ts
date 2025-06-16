@@ -2541,7 +2541,6 @@ ${companyInfo}
     })
   );
 
-  // 3. Log Engagement prompt
   server.prompt(
     "log_engagement",
     { engagementDetails: z.string() },
