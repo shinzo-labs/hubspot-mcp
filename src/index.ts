@@ -2621,7 +2621,6 @@ When complete, give me a summary of how many were updated successfully and any i
     })
   );
 
-  // 5. Associate Contacts Companies prompt
   server.prompt(
     "associate_contacts_companies",
     { associations: z.string() },
