@@ -98,135 +98,118 @@ pnpm i
 
 ### Core CRM Objects
 
-#### Basic Object Operations
-- `crm_list_objects`: List CRM objects with optional filtering and pagination
-- `crm_get_object`: Get a single CRM object by ID
-- `crm_create_object`: Create a new CRM object
-- `crm_update_object`: Update an existing CRM object
-- `crm_delete_object`: Delete a CRM object
+  - `crm_list_objects`: List CRM objects with optional filtering and pagination
+  - `crm_get_object`: Get a single CRM object by ID
+  - `crm_create_object`: Create a new CRM object
+  - `crm_update_object`: Update an existing CRM object
+  - `crm_archive_object`: Archive (delete) a CRM object
+  - `crm_search_objects`: Search CRM objects using advanced filters
+  - `crm_batch_create_objects`: Create multiple objects in a single request
+  - `crm_batch_read_objects`: Read multipl objects in a single request
+  - `crm_batch_update_objects`: Update multiple objects in a single request
+  - `crm_batch_archive_objects`: Archive (delete) multiple objects in a single request
 
-#### Search and Batch Operations
-- `crm_search_objects`: Search CRM objects using advanced filters
-- `crm_batch_create_objects`: Create multiple objects in a single request
-- `crm_batch_update_objects`: Update multiple objects in a single request
-- `crm_batch_delete_objects`: Delete multiple objects in a single request
+### Companies
 
-### CRM Records Management
-
-#### Companies
-- Basic Operations:
   - `crm_create_company`: Create a new company with validated properties
   - `crm_update_company`: Update an existing company
   - `crm_get_company`: Get a single company by ID
   - `crm_search_companies`: Search companies with specific filters
-- Batch Operations:
   - `crm_batch_create_companies`: Create multiple companies in a single request
   - `crm_batch_update_companies`: Update multiple companies in a single request
-- Property Management:
   - `crm_get_company_properties`: Get all available company properties
   - `crm_create_company_property`: Create a new company property
 
-#### Contacts
-- Basic Operations:
+### Contacts
+
   - `crm_create_contact`: Create a new contact with validated properties
   - `crm_update_contact`: Update an existing contact's information
   - `crm_get_contact`: Get a single contact by ID
   - `crm_search_contacts`: Search contacts with specific filters
-- Batch Operations:
   - `crm_batch_create_contacts`: Create multiple contacts in a single request
   - `crm_batch_update_contacts`: Update multiple contacts in a single request
-- Property Management:
   - `crm_get_contact_properties`: Get all available contact properties
   - `crm_create_contact_property`: Create a new contact property
 
-#### Leads
-- Basic Operations:
+### Leads
+
   - `crm_create_lead`: Create a new lead with validated properties
   - `crm_update_lead`: Update an existing lead's information
   - `crm_get_lead`: Get a single lead by ID
   - `crm_search_leads`: Search leads with specific filters
-- Batch Operations:
   - `crm_batch_create_leads`: Create multiple leads in a single request
   - `crm_batch_update_leads`: Update multiple leads in a single request
-- Property Management:
   - `crm_get_lead_properties`: Get all available lead properties
   - `crm_create_lead_property`: Create a new lead property
 
 ### Engagement Management
 
-#### Engagement Details
-- Basic Operations:
   - `engagement_details_get`: Get details of a specific engagement
   - `engagement_details_create`: Create a new engagement
   - `engagement_details_update`: Update an existing engagement
-  - `engagement_details_delete`: Delete an engagement
+  - `engagement_details_archive`: Archive (delete) an engagement
   - `engagement_details_list`: List all engagements with filtering
   - `engagement_details_get_associated`: Get associated engagements
 
-#### Calls
-- Basic Operations:
+### Calls
+
   - `calls_create`: Create a new call record
   - `calls_get`: Get call details
   - `calls_update`: Update a call record
   - `calls_archive`: Archive a call
   - `calls_list`: List all calls
   - `calls_search`: Search calls
-- Batch Operations:
   - `calls_batch_create`: Create multiple calls
   - `calls_batch_read`: Read multiple calls
   - `calls_batch_update`: Update multiple calls
   - `calls_batch_archive`: Archive multiple calls
 
-#### Emails
-- Basic Operations:
+### Emails
+
   - `emails_create`: Create a new email record
   - `emails_get`: Get email details
   - `emails_update`: Update an email
   - `emails_archive`: Archive an email
   - `emails_list`: List all emails
   - `emails_search`: Search emails
-- Batch Operations:
   - `emails_batch_create`: Create multiple emails
   - `emails_batch_read`: Read multiple emails
   - `emails_batch_update`: Update multiple emails
   - `emails_batch_archive`: Archive multiple emails
 
-#### Meetings
-- Basic Operations:
+### Meetings
+
   - `meetings_create`: Create a new meeting
   - `meetings_get`: Get meeting details
   - `meetings_update`: Update a meeting
-  - `meetings_delete`: Delete a meeting
+  - `meetings_archive`: Archive (delete) a meeting
   - `meetings_list`: List all meetings
   - `meetings_search`: Search meetings
-- Batch Operations:
   - `meetings_batch_create`: Create multiple meetings
   - `meetings_batch_update`: Update multiple meetings
   - `meetings_batch_archive`: Archive multiple meetings
 
-#### Notes
-- Basic Operations:
+### Notes
+
   - `notes_create`: Create a new note
   - `notes_get`: Get note details
   - `notes_update`: Update a note
   - `notes_archive`: Archive a note
   - `notes_list`: List all notes
   - `notes_search`: Search notes
-- Batch Operations:
   - `notes_batch_create`: Create multiple notes
   - `notes_batch_read`: Read multiple notes
   - `notes_batch_update`: Update multiple notes
   - `notes_batch_archive`: Archive multiple notes
 
-#### Tasks
-- Basic Operations:
+### Tasks
+
   - `tasks_create`: Create a new task
   - `tasks_get`: Get task details
   - `tasks_update`: Update a task
   - `tasks_archive`: Archive a task
   - `tasks_list`: List all tasks
   - `tasks_search`: Search tasks
-- Batch Operations:
   - `tasks_batch_create`: Create multiple tasks
   - `tasks_batch_read`: Read multiple tasks
   - `tasks_batch_update`: Update multiple tasks
@@ -234,44 +217,35 @@ pnpm i
 
 ### Associations and Relationships
 
-#### CRM Associations v4
-- Basic Operations:
   - `crm_list_association_types`: List available association types
   - `crm_get_associations`: Get all associations between objects
   - `crm_create_association`: Create an association
-  - `crm_delete_association`: Delete an association
-- Batch Operations:
+  - `crm_archive_association`: Archive (delete) an association
   - `crm_batch_create_associations`: Create multiple associations
-  - `crm_batch_delete_associations`: Delete multiple associations
+  - `crm_batch_archive_associations`: Archive (delete) multiple associations
 
 ### Communication Preferences
 
-#### Subscription Management
-- Basic Operations:
   - `communications_get_preferences`: Get contact preferences
   - `communications_update_preferences`: Update contact preferences
   - `communications_unsubscribe_contact`: Global unsubscribe
   - `communications_subscribe_contact`: Global subscribe
   - `communications_get_subscription_definitions`: Get subscription definitions
-- Bulk Operations:
   - `communications_get_subscription_status`: Get status for multiple contacts
   - `communications_update_subscription_status`: Update status for multiple contacts
 
 ### Products
 
-#### Basic Operations:
-- `products_create`: Create a product with the given properties and return a copy of the object, including the ID.
-- `products_read`: Read an Object identified by ID
-- `products_update`: Perform a partial update of an Object identified by ID. Read-only and non-existent properties will result in an error. Properties values can be cleared by passing an empty string.
-- `products_archive`: Move an Object identified by ID to the recycling bin.
-- `products_list`: Read a page of products. Control what is returned via the `properties` query param. `after` is the paging cursor token of the last successfully read resource will be returned as the `paging.next.after` JSON property of a paged response containing more results.
-- `products_search`: Search products
-
-#### Batch Operations:
-- `products_batch_create`: Create a batch of products
-- `products_batch_read`: Read a batch of products by internal ID, or unique property values. Retrieve records by the `idProperty` parameter to retrieve records by a custom unique value property.
-- `products_batch_update`: Update a batch of products by internal ID, or unique values specified by the `idProperty` query param.
-- `products_batch_archive`: Archive a batch of products by ID
+  - `products_create`: Create a product with the given properties and return a copy of the object, including the ID.
+  - `products_read`: Read an Object identified by ID
+  - `products_update`: Perform a partial update of an Object identified by ID. Read-only and non-existent properties will result in an error. Properties values can be cleared by passing an empty string.
+  - `products_archive`: Move an Object identified by ID to the recycling bin.
+  - `products_list`: Read a page of products. Control what is returned via the `properties` query param. `after` is the paging cursor token of the last successfully read resource will be returned as the `paging.next.after` JSON property of a paged response containing more results.
+  - `products_search`: Search products
+  - `products_batch_create`: Create a batch of products
+  - `products_batch_read`: Read a batch of products by internal ID, or unique property values. Retrieve records by the `idProperty` parameter to retrieve records by a custom unique value property.
+  - `products_batch_update`: Update a batch of products by internal ID, or unique values specified by the `idProperty` query param.
+  - `products_batch_archive`: Archive a batch of products by ID
 
 ## Contributing
 
