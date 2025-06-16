@@ -2510,7 +2510,6 @@ When finished, provide a summary of what was created, updated, and any errors en
     })
   );
 
-  // 2. Update Company Info prompt
   server.prompt(
     "update_company_info",
     { companyInfo: z.string() },
