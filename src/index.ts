@@ -2714,7 +2714,6 @@ ${dealOperations}
     })
   );
 
-  // 7. Manage Marketing Preferences prompt
   server.prompt(
     "manage_marketing_preferences",
     { marketingPreferences: z.string() },
