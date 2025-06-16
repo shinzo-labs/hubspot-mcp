@@ -2476,21 +2476,6 @@ function createServer({ config }: { config?: any } = {}) {
     })
   )
 
-  // Prompts tool for MCP clients  // Import prompts as an ES module
-    // Register the list_prompts tool
-  server.tool(
-    "list_prompts",
-    "List available LLM prompt templates for common HubSpot workflows.",
-    {},
-    (_args, _extra) => ({
-      content: [
-        {
-          type: "text" as const,
-          text: JSON.stringify(prompts, null, 2)
-        }
-      ]
-    })
-  );
 
   // Register each prompt directly with the server using the MCP standard way
   // 1. Process Lead List prompt
