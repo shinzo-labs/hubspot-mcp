@@ -5,6 +5,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { createStatefulServer } from "@smithery/sdk/server/stateful.js"
 import { z } from "zod"
 
+const OBJECT_TYPES: [string, ...string[]] = ['companies', 'contacts', 'deals', 'feedback_submissions', 'tickets', 'products', 'line_items', 'quotes', 'custom']
+
 function formatResponse(data: any) {
   let text = ''
 
@@ -288,7 +290,7 @@ function createServer({ config }: { config?: any } = {}) {
   server.tool("crm_list_objects",
     "List CRM objects of a specific type with optional filtering and pagination",
     {
-      objectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
+      objectType: z.enum(OBJECT_TYPES),
       properties: z.array(z.string()).optional(),
       after: z.string().optional(),
       limit: z.number().min(1).max(100).optional(),
@@ -310,7 +312,7 @@ function createServer({ config }: { config?: any } = {}) {
   server.tool("crm_get_object",
     "Get a single CRM object by ID",
     {
-      objectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
+      objectType: z.enum(OBJECT_TYPES),
       objectId: z.string(),
       properties: z.array(z.string()).optional(),
       associations: z.array(z.string()).optional()
@@ -326,116 +328,10 @@ function createServer({ config }: { config?: any } = {}) {
     }
   )
 
-  server.tool("crm_get_quote",
-  "Get a single quote by ID with specific properties and associations",
-  {
-    quoteId: z.string(),
-    properties: z.array(z.string()).optional(),
-    associations: z.array(z.string()).optional()
-  },
-  async (params) => {
-    return handleEndpoint(async () => {
-      const endpoint = `/crm/v3/objects/quotes/${params.quoteId}`
-      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
-        properties: params.properties?.join(','),
-        associations: params.associations?.join(',')
-      })
-    })
-  }
-)
-
-server.tool("crm_get_line_item",
-  "Get a single line item by ID with specific properties and associations",
-  {
-    lineItemId: z.string(),
-    properties: z.array(z.string()).optional(),
-    associations: z.array(z.string()).optional()
-  },
-  async (params) => {
-    return handleEndpoint(async () => {
-      const endpoint = `/crm/v3/objects/line_items/${params.lineItemId}`
-      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
-        properties: params.properties?.join(','),
-        associations: params.associations?.join(',')
-      })
-    })
-  }
-)
-server.tool("crm_get_ticket",
-  "Get a single ticket by ID with specific properties and associations",
-  {
-    ticketId: z.string(),
-    properties: z.array(z.string()).optional(),
-    associations: z.array(z.string()).optional()
-  },
-  async (params) => {
-    return handleEndpoint(async () => {
-      const endpoint = `/crm/v3/objects/tickets/${params.ticketId}`
-      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
-        properties: params.properties?.join(','),
-        associations: params.associations?.join(',')
-      })
-    })
-  }
-)
-server.tool("crm_get_call",
-  "Get a single call record by ID with specific properties and associations",
-  {
-    callId: z.string(),
-    properties: z.array(z.string()).optional(),
-    associations: z.array(z.string()).optional()
-  },
-  async (params) => {
-    return handleEndpoint(async () => {
-      const endpoint = `/crm/v3/objects/calls/${params.callId}`
-      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
-        properties: params.properties?.join(','),
-        associations: params.associations?.join(',')
-      })
-    })
-  }
-)
-
-server.tool("crm_get_meeting",
-  "Get a single meeting by ID with specific properties and associations",
-  {
-    meetingId: z.string(),
-    properties: z.array(z.string()).optional(),
-    associations: z.array(z.string()).optional()
-  },
-  async (params) => {
-    return handleEndpoint(async () => {
-      const endpoint = `/crm/v3/objects/meetings/${params.meetingId}`
-      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
-        properties: params.properties?.join(','),
-        associations: params.associations?.join(',')
-      })
-    })
-  }
-)
-server.tool("crm_get_feedback_submission",
-  "Get a single feedback submission by ID with specific properties and associations",
-  {
-    feedbackId: z.string(),
-    properties: z.array(z.string()).optional(),
-    associations: z.array(z.string()).optional()
-  },
-  async (params) => {
-    return handleEndpoint(async () => {
-      const endpoint = `/crm/v3/objects/feedback_submissions/${params.feedbackId}`
-      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
-        properties: params.properties?.join(','),
-        associations: params.associations?.join(',')
-      })
-    })
-  }
-)
-
-
   server.tool("crm_create_object",
     "Create a new CRM object",
     {
-      objectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
+      objectType: z.enum(OBJECT_TYPES),
       properties: z.record(z.any()),
       associations: z.array(z.object({
         to: z.object({ id: z.string() }),
@@ -459,7 +355,7 @@ server.tool("crm_get_feedback_submission",
   server.tool("crm_update_object",
     "Update an existing CRM object",
     {
-      objectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
+      objectType: z.enum(OBJECT_TYPES),
       objectId: z.string(),
       properties: z.record(z.any())
     },
@@ -476,7 +372,7 @@ server.tool("crm_get_feedback_submission",
   server.tool("crm_archive_object",
     "Archive (delete) a CRM object",
     {
-      objectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
+      objectType: z.enum(OBJECT_TYPES),
       objectId: z.string()
     },
     async (params) => {
@@ -490,7 +386,7 @@ server.tool("crm_get_feedback_submission",
   server.tool("crm_search_objects",
     "Search CRM objects using filters",
     {
-      objectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
+      objectType: z.enum(OBJECT_TYPES),
       filterGroups: z.array(z.object({
         filters: z.array(z.object({
           propertyName: z.string(),
@@ -523,7 +419,7 @@ server.tool("crm_get_feedback_submission",
   server.tool("crm_batch_create_objects",
     "Create multiple CRM objects in a single request",
     {
-      objectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
+      objectType: z.enum(OBJECT_TYPES),
       inputs: z.array(z.object({
         properties: z.record(z.any()),
         associations: z.array(z.object({
@@ -548,7 +444,7 @@ server.tool("crm_get_feedback_submission",
   server.tool("crm_batch_read_objects",
     "Create multiple CRM objects in a single request",
     {
-      objectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
+      objectType: z.enum(OBJECT_TYPES),
       propertiesWithHistory: z.array(z.string()).optional(),
       idProperty: z.string().optional(),
       objectIds: z.array(z.string()),
@@ -570,7 +466,7 @@ server.tool("crm_get_feedback_submission",
   server.tool("crm_batch_update_objects",
     "Update multiple CRM objects in a single request",
     {
-      objectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
+      objectType: z.enum(OBJECT_TYPES),
       inputs: z.array(z.object({
         id: z.string(),
         properties: z.record(z.any())
@@ -589,7 +485,7 @@ server.tool("crm_get_feedback_submission",
   server.tool("crm_batch_archive_objects",
     "Archive (delete) multiple CRM objects in a single request",
     {
-      objectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
+      objectType: z.enum(OBJECT_TYPES),
       objectIds: z.array(z.string()),
     },
     async (params) => {
@@ -607,8 +503,8 @@ server.tool("crm_get_feedback_submission",
   server.tool("crm_list_association_types",
     "List all available association types for a given object type pair",
     {
-      fromObjectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
-      toObjectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom'])
+      fromObjectType: z.enum(OBJECT_TYPES),
+      toObjectType: z.enum(OBJECT_TYPES)
     },
     async (params) => {
       return handleEndpoint(async () => {
@@ -621,8 +517,8 @@ server.tool("crm_get_feedback_submission",
   server.tool("crm_get_associations",
     "Get all associations of a specific type between objects",
     {
-      fromObjectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
-      toObjectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
+      fromObjectType: z.enum(OBJECT_TYPES),
+      toObjectType: z.enum(OBJECT_TYPES),
       fromObjectId: z.string(),
       after: z.string().optional(),
       limit: z.number().min(1).max(500).optional()
@@ -641,8 +537,8 @@ server.tool("crm_get_feedback_submission",
   server.tool("crm_create_association",
     "Create an association between two objects",
     {
-      fromObjectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
-      toObjectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
+      fromObjectType: z.enum(OBJECT_TYPES),
+      toObjectType: z.enum(OBJECT_TYPES),
       fromObjectId: z.string(),
       toObjectId: z.string(),
       associationTypes: z.array(z.object({
@@ -663,8 +559,8 @@ server.tool("crm_get_feedback_submission",
   server.tool("crm_archive_association",
     "Archive (delete) an association between two objects",
     {
-      fromObjectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
-      toObjectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
+      fromObjectType: z.enum(OBJECT_TYPES),
+      toObjectType: z.enum(OBJECT_TYPES),
       fromObjectId: z.string(),
       toObjectId: z.string()
     },
@@ -679,8 +575,8 @@ server.tool("crm_get_feedback_submission",
   server.tool("crm_batch_create_associations",
     "Create multiple associations in a single request",
     {
-      fromObjectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
-      toObjectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
+      fromObjectType: z.enum(OBJECT_TYPES),
+      toObjectType: z.enum(OBJECT_TYPES),
       inputs: z.array(z.object({
         from: z.object({ id: z.string() }),
         to: z.object({ id: z.string() }),
@@ -703,8 +599,8 @@ server.tool("crm_get_feedback_submission",
   server.tool("crm_batch_archive_associations",
     "Archive (delete) multiple associations in a single request",
     {
-      fromObjectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
-      toObjectType: z.enum(['companies', 'contacts', 'deals', 'tickets', 'products', 'line_items', 'quotes', 'custom']),
+      fromObjectType: z.enum(OBJECT_TYPES),
+      toObjectType: z.enum(OBJECT_TYPES),
       inputs: z.array(z.object({
         from: z.object({ id: z.string() }),
         to: z.object({ id: z.string() })
@@ -787,7 +683,7 @@ server.tool("crm_get_feedback_submission",
     {
       contactId: z.string(),
       properties: z.array(z.string()).optional(),
-      associations: z.array(z.enum(['companies', 'deals', 'tickets', 'calls', 'emails', 'meetings', 'notes'])).optional()
+      associations: z.array(z.enum(OBJECT_TYPES)).optional()
     },
     async (params) => {
       return handleEndpoint(async () => {
@@ -988,7 +884,7 @@ server.tool("crm_get_feedback_submission",
     {
       leadId: z.string(),
       properties: z.array(z.string()).optional(),
-      associations: z.array(z.enum(['companies', 'contacts', 'deals', 'notes', 'tasks'])).optional()
+      associations: z.array(z.enum(OBJECT_TYPES)).optional()
     },
     async (params) => {
       return handleEndpoint(async () => {
@@ -1375,7 +1271,7 @@ server.tool("crm_get_feedback_submission",
     {
       noteId: z.string(),
       properties: z.array(z.string()).optional(),
-      associations: z.array(z.enum(['contacts', 'companies', 'deals', 'tickets'])).optional()
+      associations: z.array(z.enum(OBJECT_TYPES)).optional()
     },
     async (params) => {
       return handleEndpoint(async () => {
@@ -1423,7 +1319,7 @@ server.tool("crm_get_feedback_submission",
       limit: z.number().min(1).max(100).optional(),
       after: z.string().optional(),
       properties: z.array(z.string()).optional(),
-      associations: z.array(z.enum(['contacts', 'companies', 'deals', 'tickets'])).optional(),
+      associations: z.array(z.enum(OBJECT_TYPES)).optional(),
       archived: z.boolean().optional()
     },
     async (params) => {
@@ -1502,7 +1398,7 @@ server.tool("crm_get_feedback_submission",
       inputs: z.array(z.object({
         id: z.string(),
         properties: z.array(z.string()).optional(),
-        associations: z.array(z.enum(['contacts', 'companies', 'deals', 'tickets'])).optional()
+        associations: z.array(z.enum(OBJECT_TYPES)).optional()
       }))
     },
     async (params) => {
@@ -1589,7 +1485,7 @@ server.tool("crm_get_feedback_submission",
     {
       taskId: z.string(),
       properties: z.array(z.string()).optional(),
-      associations: z.array(z.enum(['contacts', 'companies', 'deals', 'tickets'])).optional()
+      associations: z.array(z.enum(OBJECT_TYPES)).optional()
     },
     async (params) => {
       return handleEndpoint(async () => {
@@ -1637,7 +1533,7 @@ server.tool("crm_get_feedback_submission",
       limit: z.number().min(1).max(100).optional(),
       after: z.string().optional(),
       properties: z.array(z.string()).optional(),
-      associations: z.array(z.enum(['contacts', 'companies', 'deals', 'tickets'])).optional(),
+      associations: z.array(z.enum(OBJECT_TYPES)).optional(),
       archived: z.boolean().optional()
     },
     async (params) => {
@@ -1716,7 +1612,7 @@ server.tool("crm_get_feedback_submission",
       inputs: z.array(z.object({
         id: z.string(),
         properties: z.array(z.string()).optional(),
-        associations: z.array(z.enum(['contacts', 'companies', 'deals', 'tickets'])).optional()
+        associations: z.array(z.enum(OBJECT_TYPES)).optional()
       }))
     },
     async (params) => {
@@ -1938,7 +1834,7 @@ server.tool("crm_get_feedback_submission",
     {
       callId: z.string(),
       properties: z.array(z.string()).optional(),
-      associations: z.array(z.enum(['contacts', 'companies', 'deals', 'tickets'])).optional()
+      associations: z.array(z.enum(OBJECT_TYPES)).optional()
     },
     async (params) => {
       return handleEndpoint(async () => {
@@ -1986,7 +1882,7 @@ server.tool("crm_get_feedback_submission",
       limit: z.number().min(1).max(100).optional(),
       after: z.string().optional(),
       properties: z.array(z.string()).optional(),
-      associations: z.array(z.enum(['contacts', 'companies', 'deals', 'tickets'])).optional(),
+      associations: z.array(z.enum(OBJECT_TYPES)).optional(),
       archived: z.boolean().optional()
     },
     async (params) => {
@@ -2065,7 +1961,7 @@ server.tool("crm_get_feedback_submission",
       inputs: z.array(z.object({
         id: z.string(),
         properties: z.array(z.string()).optional(),
-        associations: z.array(z.enum(['contacts', 'companies', 'deals', 'tickets'])).optional()
+        associations: z.array(z.enum(OBJECT_TYPES)).optional()
       }))
     },
     async (params) => {
@@ -2160,7 +2056,7 @@ server.tool("crm_get_feedback_submission",
     {
       emailId: z.string(),
       properties: z.array(z.string()).optional(),
-      associations: z.array(z.enum(['contacts', 'companies', 'deals', 'tickets'])).optional()
+      associations: z.array(z.enum(OBJECT_TYPES)).optional()
     },
     async (params) => {
       return handleEndpoint(async () => {
@@ -2208,7 +2104,7 @@ server.tool("crm_get_feedback_submission",
       limit: z.number().min(1).max(100).optional(),
       after: z.string().optional(),
       properties: z.array(z.string()).optional(),
-      associations: z.array(z.enum(['contacts', 'companies', 'deals', 'tickets'])).optional(),
+      associations: z.array(z.enum(OBJECT_TYPES)).optional(),
       archived: z.boolean().optional()
     },
     async (params) => {
@@ -2287,7 +2183,7 @@ server.tool("crm_get_feedback_submission",
       inputs: z.array(z.object({
         id: z.string(),
         properties: z.array(z.string()).optional(),
-        associations: z.array(z.enum(['contacts', 'companies', 'deals', 'tickets'])).optional()
+        associations: z.array(z.enum(OBJECT_TYPES)).optional()
       }))
     },
     async (params) => {
