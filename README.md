@@ -2,6 +2,7 @@
 
 [![npm version](https://badge.fury.io/js/@shinzolabs%2Fhubspot-mcp.svg)](https://badge.fury.io/js/@shinzolabs%2Fhubspot-mcp)
 [![smithery badge](https://smithery.ai/badge/@shinzo-labs/hubspot-mcp)](https://smithery.ai/server/@shinzo-labs/hubspot-mcp)
+[![npm downloads](https://img.shields.io/npm/dm/%40shinzolabs%2Fhubspot-mcp)](https://www.npmjs.com/package/@shinzolabs/hubspot-mcp)
 
 <p align="center"><img height="512" src=https://github.com/user-attachments/assets/6a0febe5-1aa5-4998-affb-6c5874ed00c4></p>
 
