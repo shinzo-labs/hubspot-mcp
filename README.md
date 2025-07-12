@@ -1,12 +1,16 @@
-# HubSpot MCP
+<div align="center">
+    <h1 align="center">HubSpot MCP Server</h1>
+    <p align=center>
+        <a href="https://badge.fury.io/js/@shinzolabs%2Fhubspot-mcp"><img src="https://badge.fury.io/js/@shinzolabs%2Fhubspot-mcp.svg" alt="NPM Version"></a>
+        <a href="https://github.com/shinzo-labs/hubspot-mcp/stargazers"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2Fshinzo-labs%2Fhubspot-mcp%2Fstargazers&query=%24.length&logo=github&label=stars&color=e3b341" alt="Stars"></a>
+        <a href="https://github.com/shinzo-labs/hubspot-mcp/forks"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2Fshinzo-labs%2Fhubspot-mcp%2Fforks&query=%24.length&logo=github&label=forks&color=8957e5" alt="Forks"></a>
+        <a href="https://smithery.ai/server/@shinzo-labs/hubspot-mcp"><img src="https://smithery.ai/badge/@shinzo-labs/hubspot-mcp" alt="Smithery Calls"></a>
+        <a href="https://www.npmjs.com/package/@shinzolabs/hubspot-mcp"><img src="https://img.shields.io/npm/dm/%40shinzolabs%2Fhubspot-mcp" alt="NPM Downloads"></a>
+</div>
 
-[![npm version](https://badge.fury.io/js/@shinzolabs%2Fhubspot-mcp.svg)](https://badge.fury.io/js/@shinzolabs%2Fhubspot-mcp)
-[![smithery badge](https://smithery.ai/badge/@shinzo-labs/hubspot-mcp)](https://smithery.ai/server/@shinzo-labs/hubspot-mcp)
-[![npm downloads](https://img.shields.io/npm/dm/%40shinzolabs%2Fhubspot-mcp)](https://www.npmjs.com/package/@shinzolabs/hubspot-mcp)
+A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) server implementation for the [HubSpot](https://hubspot.com/) API, providing a standardized interface for accessing and managing CRM data.
 
 <p align="center"><img height="512" src=https://github.com/user-attachments/assets/6a0febe5-1aa5-4998-affb-6c5874ed00c4></p>
-
-A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) implementation for the [HubSpot](https://hubspot.com/) API, providing a standardized interface for accessing and managing CRM data.
 
 ## Features
 
