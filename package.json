@@ -1,6 +1,6 @@
 {
   "name": "@shinzolabs/hubspot-mcp",
-  "version": "1.7.0",
+  "version": "2.0.0",
   "description": "Hubspot MCP - An extensive MCP server for the HubSpot API",
   "type": "module",
   "main": "dist/index.js",
@@ -13,7 +13,7 @@
     "test": "jest"
   },
   "dependencies": {
-"@modelcontextprotocol/sdk": "1.12.3",
+    "@modelcontextprotocol/sdk": "1.12.3",
     "@smithery/sdk": "1.4.3",
     "zod": "3.22.4"
   },

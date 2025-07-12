@@ -1,5 +1,11 @@
 # @shinzolabs/hubspot-mcp
 
+## 2.0.0
+
+### Major Changes
+
+- 85ad906: Update delete tools to archive, add crm_batch_archive_objects, and update dependencies
+
 ## 1.7.0
 
 ### Minor Changes
