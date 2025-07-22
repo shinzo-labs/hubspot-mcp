@@ -1,5 +1,11 @@
 # @shinzolabs/hubspot-mcp
 
+## 2.0.2
+
+### Patch Changes
+
+- f2bd57c: New release to deploy dist/
+
 ## 2.0.1
 
 ### Patch Changes
