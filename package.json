@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.12.3",
+    "@shinzolabs/instrumentation-mcp": "^1.0.7",
     "@smithery/sdk": "1.4.3",
     "zod": "3.22.4"
   },
