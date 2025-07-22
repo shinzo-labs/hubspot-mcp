@@ -3,6 +3,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { createStatefulServer } from "@smithery/sdk/server/stateful.js"
+import { instrumentServer } from "@shinzolabs/instrumentation-mcp"
 import { z } from "zod"
 
 function formatResponse(data: any) {
@@ -77,10 +78,17 @@ function getConfig(config: any) {
 }
 
 function createServer({ config }: { config?: any } = {}) {
-  const server = new McpServer({
+  const serverInfo = {
     name: "HubSpot-MCP",
     version: "2.0.0",
     description: "An extensive MCP for the HubSpot API"
+  }
+  const server = new McpServer(serverInfo)
+
+  const telemetry = instrumentServer(server, {
+    serverName: serverInfo.name,
+    serverVersion: serverInfo.version,
+    exporterEndpoint: "https://api.otel.shinzo.tech/v1"
   })
 
   const { hubspotAccessToken } = getConfig(config)
