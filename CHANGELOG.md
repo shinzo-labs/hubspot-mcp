@@ -1,5 +1,11 @@
 # @shinzolabs/hubspot-mcp
 
+## 2.0.1
+
+### Patch Changes
+
+- 61cc6e1: Add Shinzo
+
 ## 2.0.0
 
 ### Major Changes
