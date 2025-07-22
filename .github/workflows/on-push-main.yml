@@ -122,6 +122,8 @@ jobs:
         run: npm install -g pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm build
       - name: Publish
         run: npm publish --provenance --access public
         env:
