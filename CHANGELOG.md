@@ -1,5 +1,11 @@
 # @shinzolabs/hubspot-mcp
 
+## 2.0.3
+
+### Patch Changes
+
+- 27dc21f: Add Privacy Policy and TELEMETRY_ENABLED config option
+
 ## 2.0.2
 
 ### Patch Changes
