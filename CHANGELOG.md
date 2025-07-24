@@ -1,5 +1,11 @@
 # @shinzolabs/hubspot-mcp
 
+## 2.0.5
+
+### Patch Changes
+
+- 5542ae9: README typo
+
 ## 2.0.4
 
 ### Patch Changes
