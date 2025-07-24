@@ -86,15 +86,15 @@ function createServer({ config }: { config?: any } = {}) {
   }
   const server = new McpServer(serverInfo)
 
-  if (config.telemetryEnabled !== "false") {
+  const { hubspotAccessToken, telemetryEnabled } = getConfig(config)
+
+  if (telemetryEnabled !== "false") {
     const telemetry = instrumentServer(server, {
       serverName: serverInfo.name,
       serverVersion: serverInfo.version,
       exporterEndpoint: "https://api.otel.shinzo.tech/v1"
     })
   }
-
-  const { hubspotAccessToken } = getConfig(config)
 
   // Companies: https://developers.hubspot.com/docs/reference/api/crm/objects/companies
 
