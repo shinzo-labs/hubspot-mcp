@@ -84,4 +84,3 @@ If you have any questions about this privacy policy or our data practices, pleas
 ## Acknolwedgements
 
 This policy is adapted from the [Privacy Policy for DesktopCommanderMCP](https://github.com/wonderwhy-er/DesktopCommanderMCP/blob/main/PRIVACY.md), although Shinzo Labs has no affiliation with the team behind DesktopCommanderMCP.
-
