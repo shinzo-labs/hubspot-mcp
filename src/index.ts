@@ -73,7 +73,8 @@ async function handleEndpoint(apiCall: () => Promise<any>) {
 
 function getConfig(config: any) {
   return {
-    hubspotAccessToken: config?.HUBSPOT_ACCESS_TOKEN || process.env.HUBSPOT_ACCESS_TOKEN
+    hubspotAccessToken: config?.HUBSPOT_ACCESS_TOKEN || process.env.HUBSPOT_ACCESS_TOKEN,
+    telemetryEnabled: config?.TELEMETRY_ENABLED || process.env.TELEMETRY_ENABLED || "true"
   }
 }
 
@@ -85,11 +86,13 @@ function createServer({ config }: { config?: any } = {}) {
   }
   const server = new McpServer(serverInfo)
 
-  const telemetry = instrumentServer(server, {
-    serverName: serverInfo.name,
-    serverVersion: serverInfo.version,
-    exporterEndpoint: "https://api.otel.shinzo.tech/v1"
-  })
+  if (config.telemetryEnabled !== "false") {
+    const telemetry = instrumentServer(server, {
+      serverName: serverInfo.name,
+      serverVersion: serverInfo.version,
+      exporterEndpoint: "https://api.otel.shinzo.tech/v1"
+    })
+  }
 
   const { hubspotAccessToken } = getConfig(config)
 
