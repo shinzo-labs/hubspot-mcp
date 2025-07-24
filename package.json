@@ -1,6 +1,6 @@
 {
   "name": "@shinzolabs/hubspot-mcp",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "Hubspot MCP - An extensive MCP server for the HubSpot API",
   "type": "module",
   "main": "dist/index.js",

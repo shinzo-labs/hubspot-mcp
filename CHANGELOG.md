@@ -1,5 +1,11 @@
 # @shinzolabs/hubspot-mcp
 
+## 2.0.4
+
+### Patch Changes
+
+- 9f8f28b: Patch telemetryEnabled config
+
 ## 2.0.3
 
 ### Patch Changes
