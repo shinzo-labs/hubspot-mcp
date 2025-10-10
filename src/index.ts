@@ -3,10 +3,10 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js"
-import { createStatefulServer } from "@smithery/sdk/server/stateful.js"
 import { instrumentServer } from "@shinzolabs/instrumentation-mcp"
 import { z } from "zod"
 import express from "express"
+import type { Request, Response } from "express"
 
 function formatResponse(data: any) {
   let text = ''
@@ -2526,63 +2526,52 @@ function createServer({ config }: { config?: any } = {}) {
 const IS_RAILWAY = !!process.env.PORT
 
 if (IS_RAILWAY) {
-  // Railway: Use SSE transport for Claude.ai
+  // Railway: Custom HTTP/SSE server for Claude.ai
+  console.log('Starting Railway server with HTTP/SSE transport...')
   const app = express()
 
-  // Add JSON body parser
   app.use(express.json())
 
-  // CORS headers for Claude.ai
-  app.use((req, res, next) => {
+  // CORS for Claude.ai
+  app.use((_req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*')
     res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
     res.header('Access-Control-Allow-Headers', 'Content-Type')
-    if (req.method === 'OPTIONS') {
-      res.sendStatus(200)
-      return
-    }
     next()
   })
 
   // Health check
-  app.get("/health", (req, res) => {
+  app.get("/health", (_req: Request, res: Response) => {
     res.json({ status: "ok", server: "HubSpot MCP", tools: 116 })
   })
 
-  // SSE endpoint for Claude.ai
-  app.get("/sse", async (req, res) => {
-    console.log('SSE connection attempt from:', req.ip)
+  // Main SSE endpoint - Claude.ai connects here
+  app.get("/sse", async (req: Request, res: Response) => {
+    console.log('New SSE connection from:', req.ip)
 
-    // Set SSE headers
-    res.setHeader('Content-Type', 'text/event-stream')
-    res.setHeader('Cache-Control', 'no-cache')
-    res.setHeader('Connection', 'keep-alive')
-
-    // Create a new server instance for this connection
-    const server = createServer({})
     const transport = new SSEServerTransport("/message", res)
+    const server = createServer({})
 
-    try {
-      await server.connect(transport)
-      console.log('SSE connection established')
-    } catch (error) {
-      console.error('SSE connection error:', error)
-      res.status(500).end()
-    }
+    await server.connect(transport)
+    console.log('SSE transport connected')
+
+    // Keep connection alive
+    req.on('close', () => {
+      console.log('SSE connection closed')
+    })
   })
 
-  // Message endpoint for SSE
-  app.post("/message", express.json(), async (req, res) => {
-    console.log('Message received:', req.body)
-    // SSE transport handles message routing
-    res.status(200).json({ received: true })
+  // Message endpoint for SSE protocol
+  app.post("/message", async (req: Request, res: Response) => {
+    // This is handled by SSEServerTransport
+    res.status(200).end()
   })
 
   const PORT = process.env.PORT || 3000
   app.listen(PORT, () => {
-    console.log(`MCP Server listening on port ${PORT}`)
-    console.log(`SSE endpoint: http://localhost:${PORT}/sse`)
-    console.log(`Health endpoint: http://localhost:${PORT}/health`)
+    console.log(`✅ MCP Server listening on port ${PORT}`)
+    console.log(`📡 SSE endpoint: https://your-app.up.railway.app/sse`)
+    console.log(`❤️  Health check: https://your-app.up.railway.app/health`)
   })
 } else {
   // Local: Use stdio transport
