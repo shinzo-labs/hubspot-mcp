@@ -10,10 +10,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node ./dist/index.js",
-    "test": "jest"
+    "test": "jest",
+    "railway:build": "npm run build",
+    "railway:start": "npm start"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.12.3",
+    "@modelcontextprotocol/sdk": "^1.15.1",
     "@shinzolabs/instrumentation-mcp": "^1.0.8",
     "@smithery/sdk": "1.4.3",
     "zod": "3.22.4"
@@ -28,7 +30,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/shinzo-labs/hubspot-mcp"
+    "url": "https://github.com/MagicTurtle-s/hubspot-mcp-railway"
   },
   "engines": {
     "node": ">=18.0.0"
