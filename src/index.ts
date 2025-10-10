@@ -2,9 +2,11 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js"
 import { createStatefulServer } from "@smithery/sdk/server/stateful.js"
 import { instrumentServer } from "@shinzolabs/instrumentation-mcp"
 import { z } from "zod"
+import express from "express"
 
 function formatResponse(data: any) {
   let text = ''
@@ -2520,12 +2522,39 @@ function createServer({ config }: { config?: any } = {}) {
   return server.server
 }
 
-// Stdio Server 
-const stdioServer = createServer({})
-const transport = new StdioServerTransport()
-await stdioServer.connect(transport)
+// Check if running in Railway (has PORT env var) or locally
+const IS_RAILWAY = !!process.env.PORT
 
-// Streamable HTTP Server
-const { app } = createStatefulServer(createServer)
-const PORT = process.env.PORT || 3000
-app.listen(PORT)
+if (IS_RAILWAY) {
+  // Railway: Use SSE transport for Claude.ai
+  const app = express()
+  const server = createServer({})
+
+  // SSE endpoint for Claude.ai
+  app.get("/sse", async (req, res) => {
+    const transport = new SSEServerTransport("/message", res)
+    await server.connect(transport)
+  })
+
+  // Message endpoint for SSE
+  app.post("/message", async (req, res) => {
+    // SSE transport handles this
+    res.status(200).end()
+  })
+
+  // Health check
+  app.get("/health", (req, res) => {
+    res.json({ status: "ok", server: "HubSpot MCP" })
+  })
+
+  const PORT = process.env.PORT || 3000
+  app.listen(PORT, () => {
+    console.log(`MCP Server listening on port ${PORT}`)
+    console.log(`SSE endpoint: http://localhost:${PORT}/sse`)
+  })
+} else {
+  // Local: Use stdio transport
+  const stdioServer = createServer({})
+  const transport = new StdioServerTransport()
+  await stdioServer.connect(transport)
+}
