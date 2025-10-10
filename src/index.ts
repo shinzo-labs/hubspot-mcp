@@ -2,10 +2,11 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js"
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js"
 import { instrumentServer } from "@shinzolabs/instrumentation-mcp"
 import { z } from "zod"
 import express from "express"
+import cors from "cors"
 import type { Request, Response } from "express"
 
 function formatResponse(data: any) {
@@ -2526,51 +2527,57 @@ function createServer({ config }: { config?: any } = {}) {
 const IS_RAILWAY = !!process.env.PORT
 
 if (IS_RAILWAY) {
-  // Railway: Custom HTTP/SSE server for Claude.ai
-  console.log('Starting Railway server with HTTP/SSE transport...')
+  // Railway: Streamable HTTP transport for Claude.ai web
+  console.log('Starting Railway server with Streamable HTTP transport...')
   const app = express()
 
   app.use(express.json())
 
-  // CORS for Claude.ai
-  app.use((_req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*')
-    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-    res.header('Access-Control-Allow-Headers', 'Content-Type')
-    next()
-  })
+  // CORS - expose Mcp-Session-Id header for Claude.ai
+  app.use(cors({
+    origin: '*',
+    exposedHeaders: ['Mcp-Session-Id']
+  }))
 
   // Health check
   app.get("/health", (_req: Request, res: Response) => {
     res.json({ status: "ok", server: "HubSpot MCP", tools: 116 })
   })
 
-  // Main SSE endpoint - Claude.ai connects here
-  app.get("/sse", async (req: Request, res: Response) => {
-    console.log('New SSE connection from:', req.ip)
+  // Main MCP endpoint - Claude.ai connects here via POST
+  app.post("/mcp", async (req: Request, res: Response) => {
+    console.log('New MCP request from:', req.ip)
 
-    const transport = new SSEServerTransport("/message", res)
     const server = createServer({})
 
-    await server.connect(transport)
-    console.log('SSE transport connected')
+    try {
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: undefined // Stateless mode
+      })
 
-    // Keep connection alive
-    req.on('close', () => {
-      console.log('SSE connection closed')
-    })
-  })
+      await server.connect(transport)
+      await transport.handleRequest(req, res, req.body)
 
-  // Message endpoint for SSE protocol
-  app.post("/message", async (req: Request, res: Response) => {
-    // This is handled by SSEServerTransport
-    res.status(200).end()
+      res.on('close', () => {
+        console.log('Request closed')
+        transport.close()
+        server.close()
+      })
+    } catch (error) {
+      console.error('Error handling MCP request:', error)
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: 'Internal server error',
+          message: error instanceof Error ? error.message : 'Unknown error'
+        })
+      }
+    }
   })
 
   const PORT = process.env.PORT || 3000
   app.listen(PORT, () => {
     console.log(`✅ MCP Server listening on port ${PORT}`)
-    console.log(`📡 SSE endpoint: https://your-app.up.railway.app/sse`)
+    console.log(`📡 MCP endpoint: https://your-app.up.railway.app/mcp`)
     console.log(`❤️  Health check: https://your-app.up.railway.app/health`)
   })
 } else {
