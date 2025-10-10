@@ -2528,29 +2528,61 @@ const IS_RAILWAY = !!process.env.PORT
 if (IS_RAILWAY) {
   // Railway: Use SSE transport for Claude.ai
   const app = express()
-  const server = createServer({})
 
-  // SSE endpoint for Claude.ai
-  app.get("/sse", async (req, res) => {
-    const transport = new SSEServerTransport("/message", res)
-    await server.connect(transport)
-  })
+  // Add JSON body parser
+  app.use(express.json())
 
-  // Message endpoint for SSE
-  app.post("/message", async (req, res) => {
-    // SSE transport handles this
-    res.status(200).end()
+  // CORS headers for Claude.ai
+  app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*')
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    res.header('Access-Control-Allow-Headers', 'Content-Type')
+    if (req.method === 'OPTIONS') {
+      res.sendStatus(200)
+      return
+    }
+    next()
   })
 
   // Health check
   app.get("/health", (req, res) => {
-    res.json({ status: "ok", server: "HubSpot MCP" })
+    res.json({ status: "ok", server: "HubSpot MCP", tools: 116 })
+  })
+
+  // SSE endpoint for Claude.ai
+  app.get("/sse", async (req, res) => {
+    console.log('SSE connection attempt from:', req.ip)
+
+    // Set SSE headers
+    res.setHeader('Content-Type', 'text/event-stream')
+    res.setHeader('Cache-Control', 'no-cache')
+    res.setHeader('Connection', 'keep-alive')
+
+    // Create a new server instance for this connection
+    const server = createServer({})
+    const transport = new SSEServerTransport("/message", res)
+
+    try {
+      await server.connect(transport)
+      console.log('SSE connection established')
+    } catch (error) {
+      console.error('SSE connection error:', error)
+      res.status(500).end()
+    }
+  })
+
+  // Message endpoint for SSE
+  app.post("/message", express.json(), async (req, res) => {
+    console.log('Message received:', req.body)
+    // SSE transport handles message routing
+    res.status(200).json({ received: true })
   })
 
   const PORT = process.env.PORT || 3000
   app.listen(PORT, () => {
     console.log(`MCP Server listening on port ${PORT}`)
     console.log(`SSE endpoint: http://localhost:${PORT}/sse`)
+    console.log(`Health endpoint: http://localhost:${PORT}/health`)
   })
 } else {
   // Local: Use stdio transport
