@@ -92,6 +92,31 @@ pnpm i
 }
 ```
 
+### Claude Code CLI Integration
+
+For Claude Code CLI with remote HTTP transport (Railway deployment):
+
+```bash
+claude mcp add hubspot https://YOUR_DEPLOYMENT_URL/mcp
+```
+
+Replace `YOUR_DEPLOYMENT_URL` with your Railway deployment domain.
+
+Or manually add to `~/.claude.json`:
+
+```json
+{
+  "mcpServers": {
+    "hubspot": {
+      "url": "https://YOUR_DEPLOYMENT_URL/mcp",
+      "transport": "http"
+    }
+  }
+}
+```
+
+**Note**: The Railway deployment uses HTTP transport. Configure `HUBSPOT_ACCESS_TOKEN` in your Railway environment variables.
+
 ## Config Variables
 
 | Variable               | Description                               | Required? | Default |
