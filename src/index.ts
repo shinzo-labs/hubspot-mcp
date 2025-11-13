@@ -1029,6 +1029,206 @@ function createServer({ config }: { config?: any } = {}) {
     }
   )
 
+  // Deals: https://developers.hubspot.com/docs/reference/api/crm/objects/deals
+
+  const dealPropertiesSchema = z.object({
+    dealname: z.string().optional(),
+    amount: z.number().optional(),
+    closedate: z.string().optional(),
+    pipeline: z.string().optional(),
+    dealstage: z.string().optional(),
+    dealtype: z.string().optional(),
+    description: z.string().optional(),
+    hubspot_owner_id: z.string().optional(),
+    hs_priority: z.enum(['low', 'medium', 'high']).optional(),
+    hs_forecast_amount: z.number().optional(),
+    hs_forecast_probability: z.number().min(0).max(100).optional(),
+    hs_manual_forecast_category: z.enum(['omitted', 'pipeline', 'bestcase', 'committed', 'closed']).optional(),
+    hs_next_step: z.string().optional(),
+    notes_last_updated: z.string().optional(),
+    num_associated_contacts: z.number().optional(),
+    num_contacted_notes: z.number().optional(),
+    hs_lastmodifieddate: z.string().optional(),
+    createdate: z.string().optional(),
+  }).catchall(z.any())
+
+  server.tool("crm_create_deal",
+    "Create a new deal with validated properties",
+    {
+      properties: dealPropertiesSchema,
+      associations: z.array(z.object({
+        to: z.object({ id: z.string() }),
+        types: z.array(z.object({
+          associationCategory: z.string(),
+          associationTypeId: z.number()
+        }))
+      })).optional()
+    },
+    async (params) => {
+      return handleEndpoint(async () => {
+        const endpoint = '/crm/v3/objects/deals'
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
+          properties: params.properties,
+          associations: params.associations
+        })
+      })
+    }
+  )
+
+  server.tool("crm_update_deal",
+    "Update an existing deal with validated properties",
+    {
+      dealId: z.string(),
+      properties: dealPropertiesSchema
+    },
+    async (params) => {
+      return handleEndpoint(async () => {
+        const endpoint = `/crm/v3/objects/deals/${params.dealId}`
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
+          properties: params.properties
+        })
+      })
+    }
+  )
+
+  server.tool("crm_get_deal",
+    "Get a single deal by ID with specific properties and associations",
+    {
+      dealId: z.string(),
+      properties: z.array(z.string()).optional(),
+      associations: z.array(z.enum(['companies', 'contacts', 'line_items', 'quotes', 'tickets', 'calls', 'emails', 'meetings', 'notes', 'tasks'])).optional()
+    },
+    async (params) => {
+      return handleEndpoint(async () => {
+        const endpoint = `/crm/v3/objects/deals/${params.dealId}`
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
+          properties: params.properties?.join(','),
+          associations: params.associations?.join(',')
+        })
+      })
+    }
+  )
+
+  server.tool("crm_search_deals",
+    "Search deals with deal-specific filters",
+    {
+      filterGroups: z.array(z.object({
+        filters: z.array(z.object({
+          propertyName: z.string(),
+          operator: z.enum(['EQ', 'NEQ', 'LT', 'LTE', 'GT', 'GTE', 'BETWEEN', 'IN', 'NOT_IN', 'HAS_PROPERTY', 'NOT_HAS_PROPERTY', 'CONTAINS_TOKEN', 'NOT_CONTAINS_TOKEN']),
+          value: z.any()
+        }))
+      })),
+      properties: z.array(z.string()).optional(),
+      limit: z.number().min(1).max(100).optional(),
+      after: z.string().optional(),
+      sorts: z.array(z.object({
+        propertyName: z.string(),
+        direction: z.enum(['ASCENDING', 'DESCENDING'])
+      })).optional()
+    },
+    async (params) => {
+      return handleEndpoint(async () => {
+        const endpoint = '/crm/v3/objects/deals/search'
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
+          filterGroups: params.filterGroups,
+          properties: params.properties,
+          limit: params.limit,
+          after: params.after,
+          sorts: params.sorts
+        })
+      })
+    }
+  )
+
+  server.tool("crm_batch_create_deals",
+    "Create multiple deals in a single request",
+    {
+      inputs: z.array(z.object({
+        properties: dealPropertiesSchema,
+        associations: z.array(z.object({
+          to: z.object({ id: z.string() }),
+          types: z.array(z.object({
+            associationCategory: z.string(),
+            associationTypeId: z.number()
+          }))
+        })).optional()
+      }))
+    },
+    async (params) => {
+      return handleEndpoint(async () => {
+        const endpoint = '/crm/v3/objects/deals/batch/create'
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
+          inputs: params.inputs
+        })
+      })
+    }
+  )
+
+  server.tool("crm_batch_update_deals",
+    "Update multiple deals in a single request",
+    {
+      inputs: z.array(z.object({
+        id: z.string(),
+        properties: dealPropertiesSchema
+      }))
+    },
+    async (params) => {
+      return handleEndpoint(async () => {
+        const endpoint = '/crm/v3/objects/deals/batch/update'
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
+          inputs: params.inputs
+        })
+      })
+    }
+  )
+
+  server.tool("crm_get_deal_properties",
+    "Get all properties for deals",
+    {
+      archived: z.boolean().optional(),
+      properties: z.array(z.string()).optional()
+    },
+    async (params) => {
+      return handleEndpoint(async () => {
+        const endpoint = '/crm/v3/properties/deals'
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
+          archived: params.archived,
+          properties: params.properties?.join(',')
+        })
+      })
+    }
+  )
+
+  server.tool("crm_create_deal_property",
+    "Create a new deal property",
+    {
+      name: z.string(),
+      label: z.string(),
+      type: z.enum(['string', 'number', 'date', 'datetime', 'enumeration', 'bool']),
+      fieldType: z.enum(['text', 'textarea', 'select', 'radio', 'checkbox', 'number', 'date', 'file']),
+      groupName: z.string(),
+      description: z.string().optional(),
+      options: z.array(z.object({
+        label: z.string(),
+        value: z.string(),
+        description: z.string().optional(),
+        displayOrder: z.number().optional(),
+        hidden: z.boolean().optional()
+      })).optional(),
+      displayOrder: z.number().optional(),
+      hasUniqueValue: z.boolean().optional(),
+      hidden: z.boolean().optional(),
+      formField: z.boolean().optional()
+    },
+    async (params) => {
+      return handleEndpoint(async () => {
+        const endpoint = '/crm/v3/properties/deals'
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', params)
+      })
+    }
+  )
+
   // Meetings: https://developers.hubspot.com/docs/reference/api/crm/engagements/meetings
 
   server.tool("meetings_list",
