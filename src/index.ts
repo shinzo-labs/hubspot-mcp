@@ -2525,12 +2525,14 @@ function createServer({ config }: { config?: any } = {}) {
   return server.server
 }
 
-// Stdio Server 
+// Stdio Server
 const stdioServer = createServer({})
 const transport = new StdioServerTransport()
 await stdioServer.connect(transport)
 
-// Streamable HTTP Server
-const { app } = createStatefulServer(createServer)
-const PORT = process.env.PORT || 3000
-app.listen(PORT)
+// Streamable HTTP Server (optional - only start if ENABLE_HTTP is set)
+if (process.env.ENABLE_HTTP === 'true') {
+  const { app } = createStatefulServer(createServer)
+  const PORT = process.env.PORT || 3000
+  app.listen(PORT)
+}
