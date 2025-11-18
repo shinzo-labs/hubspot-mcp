@@ -17,10 +17,13 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) s
 - Complete coverage of the HubSpot CRM API
 - Support for all standard CRM objects (companies, contacts, deals, etc.)
 - Advanced association management with CRM Associations v4
+- Pipeline management for deals, tickets, and leads
+- Workflow automation (BETA - v4 Automation API)
 - Company-specific endpoints with property validation
 - Batch operations for efficient data management
 - Advanced search and filtering capabilities
 - Type-safe parameter validation with [Zod](https://zod.dev/)
+- Optional client secret support for enhanced authentication
 
 ## Prerequisites
 
@@ -257,6 +260,26 @@ pnpm i
   - `products_batch_read`: Read a batch of products by internal ID, or unique property values. Retrieve records by the `idProperty` parameter to retrieve records by a custom unique value property.
   - `products_batch_update`: Update a batch of products by internal ID, or unique values specified by the `idProperty` query param.
   - `products_batch_archive`: Archive a batch of products by ID
+
+### Pipelines
+
+  - `pipelines_list`: Get all pipelines for a specific object type (deals, tickets, leads)
+  - `pipelines_get`: Get a specific pipeline by ID
+  - `pipelines_create`: Create a new pipeline with stages
+  - `pipelines_update`: Update an existing pipeline's label or display order
+  - `pipelines_delete`: Delete a pipeline
+  - `pipelines_stage_create`: Create a new stage in a pipeline
+  - `pipelines_stage_update`: Update a pipeline stage's details
+  - `pipelines_stage_delete`: Delete a stage from a pipeline
+  - `pipelines_audit`: View audit history of changes made to a pipeline
+
+### Workflows (BETA)
+
+  - `workflows_list`: Get all workflows in your HubSpot account
+  - `workflows_get`: Get a specific workflow by ID
+  - `workflows_create`: Create a new workflow (requires workflow specification)
+  - `workflows_delete`: Delete a workflow
+  - `workflows_batch_read`: Get multiple workflows by their IDs in a single request
 
 ## Contributing
 

@@ -2522,6 +2522,217 @@ function createServer({ config }: { config?: any } = {}) {
     })
   )
 
+  // Pipelines: https://developers.hubspot.com/docs/api-reference/crm-pipelines-v3/guide
+  server.tool("pipelines_list",
+    "Get all pipelines for a specific object type (e.g., deals, tickets)",
+    {
+      objectType: z.enum(['deals', 'tickets', 'leads'])
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = `/crm/v3/pipelines/${params.objectType}`
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'GET', null, hubspotClientSecret)
+    })
+  )
+
+  server.tool("pipelines_get",
+    "Get a specific pipeline by ID for an object type",
+    {
+      objectType: z.enum(['deals', 'tickets', 'leads']),
+      pipelineId: z.string()
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = `/crm/v3/pipelines/${params.objectType}/${params.pipelineId}`
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'GET', null, hubspotClientSecret)
+    })
+  )
+
+  server.tool("pipelines_create",
+    "Create a new pipeline for an object type with stages",
+    {
+      objectType: z.enum(['deals', 'tickets', 'leads']),
+      label: z.string(),
+      displayOrder: z.number().optional(),
+      stages: z.array(z.object({
+        label: z.string(),
+        displayOrder: z.number(),
+        metadata: z.record(z.any()).optional()
+      }))
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = `/crm/v3/pipelines/${params.objectType}`
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
+        label: params.label,
+        displayOrder: params.displayOrder,
+        stages: params.stages
+      }, hubspotClientSecret)
+    })
+  )
+
+  server.tool("pipelines_update",
+    "Update an existing pipeline's details (label, display order)",
+    {
+      objectType: z.enum(['deals', 'tickets', 'leads']),
+      pipelineId: z.string(),
+      label: z.string().optional(),
+      displayOrder: z.number().optional()
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = `/crm/v3/pipelines/${params.objectType}/${params.pipelineId}`
+      const body: any = {}
+      if (params.label) body.label = params.label
+      if (params.displayOrder !== undefined) body.displayOrder = params.displayOrder
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', body, hubspotClientSecret)
+    })
+  )
+
+  server.tool("pipelines_delete",
+    "Delete a pipeline by ID",
+    {
+      objectType: z.enum(['deals', 'tickets', 'leads']),
+      pipelineId: z.string()
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = `/crm/v3/pipelines/${params.objectType}/${params.pipelineId}`
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE', null, hubspotClientSecret)
+    })
+  )
+
+  server.tool("pipelines_stage_create",
+    "Create a new stage in an existing pipeline",
+    {
+      objectType: z.enum(['deals', 'tickets', 'leads']),
+      pipelineId: z.string(),
+      label: z.string(),
+      displayOrder: z.number(),
+      metadata: z.record(z.any()).optional()
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = `/crm/v3/pipelines/${params.objectType}/${params.pipelineId}/stages`
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
+        label: params.label,
+        displayOrder: params.displayOrder,
+        metadata: params.metadata
+      }, hubspotClientSecret)
+    })
+  )
+
+  server.tool("pipelines_stage_update",
+    "Update a pipeline stage's details",
+    {
+      objectType: z.enum(['deals', 'tickets', 'leads']),
+      pipelineId: z.string(),
+      stageId: z.string(),
+      label: z.string().optional(),
+      displayOrder: z.number().optional(),
+      metadata: z.record(z.any()).optional()
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = `/crm/v3/pipelines/${params.objectType}/${params.pipelineId}/stages/${params.stageId}`
+      const body: any = {}
+      if (params.label) body.label = params.label
+      if (params.displayOrder !== undefined) body.displayOrder = params.displayOrder
+      if (params.metadata) body.metadata = params.metadata
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', body, hubspotClientSecret)
+    })
+  )
+
+  server.tool("pipelines_stage_delete",
+    "Delete a stage from a pipeline",
+    {
+      objectType: z.enum(['deals', 'tickets', 'leads']),
+      pipelineId: z.string(),
+      stageId: z.string()
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = `/crm/v3/pipelines/${params.objectType}/${params.pipelineId}/stages/${params.stageId}`
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE', null, hubspotClientSecret)
+    })
+  )
+
+  server.tool("pipelines_audit",
+    "View audit history of changes made to a pipeline",
+    {
+      objectType: z.enum(['deals', 'tickets', 'leads']),
+      pipelineId: z.string()
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = `/crm/v3/pipelines/${params.objectType}/${params.pipelineId}/audit`
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'GET', null, hubspotClientSecret)
+    })
+  )
+
+  // Workflows: https://developers.hubspot.com/docs/guides/api/automation/workflows-v4
+  server.tool("workflows_list",
+    "Get all workflows in your HubSpot account",
+    {
+      limit: z.number().optional(),
+      after: z.string().optional()
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = '/automation/v4/flows'
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
+        limit: params.limit,
+        after: params.after
+      }, 'GET', null, hubspotClientSecret)
+    })
+  )
+
+  server.tool("workflows_get",
+    "Get a specific workflow by ID",
+    {
+      flowId: z.string()
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = `/automation/v4/flows/${params.flowId}`
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'GET', null, hubspotClientSecret)
+    })
+  )
+
+  server.tool("workflows_create",
+    "Create a new workflow (BETA - requires workflow specification)",
+    {
+      name: z.string(),
+      type: z.enum(['CONTACT_FLOW', 'PLATFORM_FLOW']),
+      enabled: z.boolean().optional(),
+      actions: z.array(z.any()).optional(),
+      enrollmentTriggers: z.array(z.any()).optional()
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = '/automations/v4/flows'
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
+        name: params.name,
+        type: params.type,
+        enabled: params.enabled,
+        actions: params.actions,
+        enrollmentTriggers: params.enrollmentTriggers
+      }, hubspotClientSecret)
+    })
+  )
+
+  server.tool("workflows_delete",
+    "Delete a workflow by ID",
+    {
+      flowId: z.string()
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = `/automations/v4/flows/${params.flowId}`
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE', null, hubspotClientSecret)
+    })
+  )
+
+  server.tool("workflows_batch_read",
+    "Get multiple workflows by their IDs in a single request",
+    {
+      flowIds: z.array(z.string())
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = '/automation/v4/flows/batch/read'
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
+        inputs: params.flowIds.map((id: string) => ({ id }))
+      }, hubspotClientSecret)
+    })
+  )
+
   return server.server
 }
 
