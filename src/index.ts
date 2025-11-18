@@ -22,7 +22,7 @@ function formatResponse(data: any) {
   return { content: [{ type: "text", text }] }
 }
 
-async function makeApiRequest(apiKey: string, endpoint: string, params: Record<string, any> = {}, method = 'GET', body: Record<string, any> | null = null) {
+async function makeApiRequest(apiKey: string, endpoint: string, params: Record<string, any> = {}, method = 'GET', body: Record<string, any> | null = null, clientSecret?: string) {
   if (!apiKey) {
     throw new Error("HUBSPOT_ACCESS_TOKEN environment variable is not set")
   }
@@ -37,6 +37,10 @@ async function makeApiRequest(apiKey: string, endpoint: string, params: Record<s
   const headers: Record<string, string> = {
     'Accept': 'application/json',
     'Authorization': `Bearer ${apiKey}`
+  }
+
+  if (clientSecret) {
+    headers['X-HubSpot-Client-Secret'] = clientSecret
   }
 
   if (body) headers['Content-Type'] = 'application/json'
@@ -54,9 +58,9 @@ async function makeApiRequest(apiKey: string, endpoint: string, params: Record<s
   return await response.json()
 }
 
-async function makeApiRequestWithErrorHandling(apiKey: string, endpoint: string, params: Record<string, any> = {}, method = 'GET', body: Record<string, any> | null = null) {
+async function makeApiRequestWithErrorHandling(apiKey: string, endpoint: string, params: Record<string, any> = {}, method = 'GET', body: Record<string, any> | null = null, clientSecret?: string) {
   try {
-    const data = await makeApiRequest(apiKey, endpoint, params, method, body)
+    const data = await makeApiRequest(apiKey, endpoint, params, method, body, clientSecret)
     return formatResponse(data)
   } catch (error: any) {
     return formatResponse(`Error performing request: ${error.message}`)
@@ -74,6 +78,7 @@ async function handleEndpoint(apiCall: () => Promise<any>) {
 function getConfig(config: any) {
   return {
     hubspotAccessToken: config?.HUBSPOT_ACCESS_TOKEN || process.env.HUBSPOT_ACCESS_TOKEN,
+    hubspotClientSecret: config?.HUBSPOT_CLIENT_SECRET || process.env.HUBSPOT_CLIENT_SECRET,
     telemetryEnabled: config?.TELEMETRY_ENABLED || process.env.TELEMETRY_ENABLED || "true"
   }
 }
@@ -86,7 +91,7 @@ function createServer({ config }: { config?: any } = {}) {
   }
   const server = new McpServer(serverInfo)
 
-  const { hubspotAccessToken, telemetryEnabled } = getConfig(config)
+  const { hubspotAccessToken, hubspotClientSecret, telemetryEnabled } = getConfig(config)
 
   if (telemetryEnabled !== "false") {
     const telemetry = instrumentServer(server, {
@@ -135,7 +140,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -151,7 +156,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v3/objects/companies/${params.companyId}`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -169,7 +174,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -201,7 +206,7 @@ function createServer({ config }: { config?: any } = {}) {
           limit: params.limit,
           after: params.after,
           sorts: params.sorts
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -225,7 +230,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/companies/batch/create'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -243,7 +248,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/companies/batch/update'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -260,7 +265,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           archived: params.archived,
           properties: params.properties?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -289,7 +294,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/properties/companies'
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', params)
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', params, hubspotClientSecret)
       })
     }
   )
@@ -313,7 +318,7 @@ function createServer({ config }: { config?: any } = {}) {
           after: params.after,
           limit: params.limit,
           archived: params.archived
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -332,7 +337,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -356,7 +361,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -373,7 +378,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v3/objects/${params.objectType}/${params.objectId}`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -387,7 +392,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/${params.objectType}/${params.objectId}`
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE', hubspotClientSecret)
       })
     }
   )
@@ -420,7 +425,7 @@ function createServer({ config }: { config?: any } = {}) {
           limit: params.limit,
           after: params.after,
           sorts: params.sorts
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -445,7 +450,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v3/objects/${params.objectType}/batch/create`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -467,7 +472,7 @@ function createServer({ config }: { config?: any } = {}) {
           idProperty: params.idProperty,
           inputs: params.objectIds.map((id: string) => ({ id })),
           properties: params.properties
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -486,7 +491,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v3/objects/${params.objectType}/batch/update`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -502,7 +507,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v3/objects/${params.objectType}/batch/archive`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.objectIds.map((id: string) => ({ id }))
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -518,7 +523,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v4/associations/${params.fromObjectType}/${params.toObjectType}/types`
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint)
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, hubspotClientSecret)
       })
     }
   )
@@ -538,7 +543,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           after: params.after,
           limit: params.limit
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -560,7 +565,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v4/objects/${params.fromObjectType}/${params.fromObjectId}/associations/${params.toObjectType}/${params.toObjectId}`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PUT', {
           types: params.associationTypes
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -576,7 +581,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v4/objects/${params.fromObjectType}/${params.fromObjectId}/associations/${params.toObjectType}/${params.toObjectId}`
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE', hubspotClientSecret)
       })
     }
   )
@@ -600,7 +605,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v4/associations/${params.fromObjectType}/${params.toObjectType}/batch/create`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -620,7 +625,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v4/associations/${params.fromObjectType}/${params.toObjectType}/batch/archive`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -666,7 +671,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -682,7 +687,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v3/objects/contacts/${params.contactId}`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -700,7 +705,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -732,7 +737,7 @@ function createServer({ config }: { config?: any } = {}) {
           limit: params.limit,
           after: params.after,
           sorts: params.sorts
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -756,7 +761,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/contacts/batch/create'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -774,7 +779,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/contacts/batch/update'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -791,7 +796,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           archived: params.archived,
           properties: params.properties?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -820,7 +825,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/properties/contacts'
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', params)
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', params, hubspotClientSecret)
       })
     }
   )
@@ -867,7 +872,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -883,7 +888,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v3/objects/leads/${params.leadId}`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -901,7 +906,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -933,7 +938,7 @@ function createServer({ config }: { config?: any } = {}) {
           limit: params.limit,
           after: params.after,
           sorts: params.sorts
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -957,7 +962,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/leads/batch/create'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -975,7 +980,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/leads/batch/update'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -992,7 +997,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           archived: params.archived,
           properties: params.properties?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1021,7 +1026,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/properties/leads'
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', params)
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', params, hubspotClientSecret)
       })
     }
   )
@@ -1046,7 +1051,7 @@ function createServer({ config }: { config?: any } = {}) {
           createdAfter: params.createdAfter,
           createdBefore: params.createdBefore,
           properties: params.properties?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1064,7 +1069,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1096,7 +1101,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1120,7 +1125,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v3/objects/meetings/${params.meetingId}`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1133,7 +1138,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/meetings/${params.meetingId}`
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE', hubspotClientSecret)
       })
     }
   )
@@ -1165,7 +1170,7 @@ function createServer({ config }: { config?: any } = {}) {
           limit: params.limit,
           after: params.after,
           sorts: params.sorts
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1198,7 +1203,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/meetings/batch/create'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1224,7 +1229,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/meetings/batch/update'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1239,7 +1244,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/meetings/batch/archive'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.meetingIds.map((id: string) => ({ id }))
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1270,7 +1275,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1288,7 +1293,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1304,7 +1309,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v3/objects/notes/${params.noteId}`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1317,7 +1322,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/notes/${params.noteId}`
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE', hubspotClientSecret)
       })
     }
   )
@@ -1340,7 +1345,7 @@ function createServer({ config }: { config?: any } = {}) {
           properties: params.properties?.join(','),
           associations: params.associations?.join(','),
           archived: params.archived
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1372,7 +1377,7 @@ function createServer({ config }: { config?: any } = {}) {
           limit: params.limit,
           after: params.after,
           sorts: params.sorts
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1396,7 +1401,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/notes/batch/create'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1415,7 +1420,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/notes/batch/read'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1433,7 +1438,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/notes/batch/update'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1448,7 +1453,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/notes/batch/archive'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.noteIds.map((id: string) => ({ id }))
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1484,7 +1489,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1502,7 +1507,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1518,7 +1523,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v3/objects/tasks/${params.taskId}`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1531,7 +1536,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/tasks/${params.taskId}`
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE', hubspotClientSecret)
       })
     }
   )
@@ -1554,7 +1559,7 @@ function createServer({ config }: { config?: any } = {}) {
           properties: params.properties?.join(','),
           associations: params.associations?.join(','),
           archived: params.archived
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1586,7 +1591,7 @@ function createServer({ config }: { config?: any } = {}) {
           limit: params.limit,
           after: params.after,
           sorts: params.sorts
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1610,7 +1615,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/tasks/batch/create'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1629,7 +1634,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/tasks/batch/read'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1647,7 +1652,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/tasks/batch/update'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1662,7 +1667,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/tasks/batch/archive'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.taskIds.map((id: string) => ({ id }))
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1692,7 +1697,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/engagements/v1/engagements/${params.engagementId}`
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint)
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, hubspotClientSecret)
       })
     }
   )
@@ -1717,7 +1722,7 @@ function createServer({ config }: { config?: any } = {}) {
           engagement: params.engagement,
           associations: params.associations,
           metadata: params.metadata
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1735,7 +1740,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           engagement: params.engagement,
           metadata: params.metadata
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1758,7 +1763,7 @@ function createServer({ config }: { config?: any } = {}) {
           startTime: params.startTime,
           endTime: params.endTime,
           activityTypes: params.activityTypes?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1771,7 +1776,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/engagements/v1/engagements/${params.engagementId}`
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE', hubspotClientSecret)
       })
     }
   )
@@ -1796,7 +1801,7 @@ function createServer({ config }: { config?: any } = {}) {
           activityTypes: params.activityTypes?.join(','),
           limit: params.limit,
           offset: params.offset
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1833,7 +1838,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1851,7 +1856,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1867,7 +1872,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v3/objects/calls/${params.callId}`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1880,7 +1885,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/calls/${params.callId}`
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE', hubspotClientSecret)
       })
     }
   )
@@ -1903,7 +1908,7 @@ function createServer({ config }: { config?: any } = {}) {
           properties: params.properties?.join(','),
           associations: params.associations?.join(','),
           archived: params.archived
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1935,7 +1940,7 @@ function createServer({ config }: { config?: any } = {}) {
           limit: params.limit,
           after: params.after,
           sorts: params.sorts
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1959,7 +1964,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/calls/batch/create'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1978,7 +1983,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/calls/batch/read'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1996,7 +2001,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/calls/batch/update'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2011,7 +2016,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/calls/batch/archive'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.callIds.map((id: string) => ({ id }))
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2055,7 +2060,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2073,7 +2078,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2089,7 +2094,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v3/objects/emails/${params.emailId}`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2102,7 +2107,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/emails/${params.emailId}`
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE', hubspotClientSecret)
       })
     }
   )
@@ -2125,7 +2130,7 @@ function createServer({ config }: { config?: any } = {}) {
           properties: params.properties?.join(','),
           associations: params.associations?.join(','),
           archived: params.archived
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2157,7 +2162,7 @@ function createServer({ config }: { config?: any } = {}) {
           limit: params.limit,
           after: params.after,
           sorts: params.sorts
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2181,7 +2186,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/emails/batch/create'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2200,7 +2205,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/emails/batch/read'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2218,7 +2223,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/emails/batch/update'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2233,7 +2238,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/emails/batch/archive'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.emailIds.map((id: string) => ({ id }))
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2257,7 +2262,7 @@ function createServer({ config }: { config?: any } = {}) {
       return handleEndpoint(async () => {
         const subscriptionEndpointPath = params.subscriptionId ? `/subscription/${params.subscriptionId}` : ''
         const endpoint = `/communication-preferences/v3/status/email/${params.contactId}${subscriptionEndpointPath}`
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint)
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, hubspotClientSecret)
       })
     }
   )
@@ -2272,7 +2277,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/communication-preferences/v3/status/email/${params.contactId}/subscription/${params.subscriptionId}`
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PUT', params.preferences)
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PUT', params.preferences, hubspotClientSecret)
       })
     }
   )
@@ -2290,7 +2295,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PUT', {
           portalSubscriptionLegalBasis: params.portalSubscriptionLegalBasis,
           portalSubscriptionLegalBasisExplanation: params.portalSubscriptionLegalBasisExplanation
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2308,7 +2313,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PUT', {
           portalSubscriptionLegalBasis: params.portalSubscriptionLegalBasis,
           portalSubscriptionLegalBasisExplanation: params.portalSubscriptionLegalBasisExplanation
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2323,7 +2328,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/communication-preferences/v3/definitions'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           archived: params.archived
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2339,7 +2344,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/communication-preferences/v3/status/email/subscription/${params.subscriptionId}/bulk`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           contactIds: params.contactIds
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2360,7 +2365,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/communication-preferences/v3/status/email/subscription/${params.subscriptionId}/bulk`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PUT', {
           updates: params.updates
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2389,7 +2394,7 @@ function createServer({ config }: { config?: any } = {}) {
         limit: params.limit,
         after: params.after,
         properties: params.properties?.join(',')
-      })
+      }, hubspotClientSecret)
     })
   )
 
@@ -2405,7 +2410,7 @@ function createServer({ config }: { config?: any } = {}) {
       return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
         properties: params.properties?.join(','),
         associations: params.associations?.join(',')
-      })
+      }, hubspotClientSecret)
     })
   )
 
@@ -2414,7 +2419,7 @@ function createServer({ config }: { config?: any } = {}) {
     { properties: productPropertiesSchema },
     async params => handleEndpoint(async () => {
       const endpoint = '/crm/v3/objects/products'
-      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { properties: params.properties })
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { properties: params.properties }, hubspotClientSecret)
     })
   )
 
@@ -2423,7 +2428,7 @@ function createServer({ config }: { config?: any } = {}) {
     { productId: z.string(), properties: productPropertiesSchema    },
     async params => handleEndpoint(async () => {
       const endpoint = `/crm/v3/objects/products/${params.productId}`
-      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', { properties: params.properties })
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', { properties: params.properties }, hubspotClientSecret)
     })
   )
 
@@ -2432,7 +2437,7 @@ function createServer({ config }: { config?: any } = {}) {
     { productId: z.string() },
     async params => handleEndpoint(async () => {
       const endpoint = `/crm/v3/objects/products/${params.productId}`
-      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE', hubspotClientSecret)
     })
   )
 
@@ -2461,7 +2466,7 @@ function createServer({ config }: { config?: any } = {}) {
         limit: params.limit,
         after: params.after,
         sorts: params.sorts
-      })
+      }, hubspotClientSecret)
     })
   )
 
@@ -2472,7 +2477,7 @@ function createServer({ config }: { config?: any } = {}) {
     },
     async params => handleEndpoint(async () => {
       const endpoint = '/crm/v3/objects/products/batch/archive'
-      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { inputs: params.productIds.map((id: string) => ({ id })) })
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { inputs: params.productIds.map((id: string) => ({ id })) }, hubspotClientSecret)
     })
   )
 
@@ -2483,7 +2488,7 @@ function createServer({ config }: { config?: any } = {}) {
     },
     async params => handleEndpoint(async () => {
       const endpoint = '/crm/v3/objects/products/batch/create'
-      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { inputs: params.inputs })
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { inputs: params.inputs }, hubspotClientSecret)
     })
   )
 
@@ -2497,7 +2502,7 @@ function createServer({ config }: { config?: any } = {}) {
     },
     async params => handleEndpoint(async () => {
       const endpoint = '/crm/v3/objects/products/batch/read'
-      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { inputs: params.productIds.map((id: string) => ({ id })) })
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { inputs: params.productIds.map((id: string) => ({ id })) }, hubspotClientSecret)
     })
   )
 
@@ -2513,7 +2518,7 @@ function createServer({ config }: { config?: any } = {}) {
     },
     async params => handleEndpoint(async () => {
       const endpoint = '/crm/v3/objects/products/batch/update'
-      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { inputs: params.inputs })
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { inputs: params.inputs }, hubspotClientSecret)
     })
   )
 
