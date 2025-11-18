@@ -24,7 +24,9 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) s
 
 ## Prerequisites
 
-If you don't have an API key, follow the steps [here](https://developers.hubspot.com/docs/guides/api/overview) to obtain an access token. OAuth support is planned as a future enhancement.
+If you don't have an API key, follow the steps [here](https://developers.hubspot.com/docs/guides/api/overview) to obtain an access token.
+
+For certain HubSpot API operations that require additional security, you may also need a Client Secret. This is optional and only required for specific endpoints that require enhanced authentication. OAuth support is planned as a future enhancement.
 
 ## Client Configuration
 
@@ -56,7 +58,8 @@ To install the server locally with `npx`, add the following to your MCP client `
         "@shinzolabs/hubspot-mcp"
       ],
       "env": {
-        "HUBSPOT_ACCESS_TOKEN": "your-access-token-here"
+        "HUBSPOT_ACCESS_TOKEN": "your-access-token-here",
+        "HUBSPOT_CLIENT_SECRET": "your-client-secret-here" // Optional
       }
     }
   }
@@ -85,7 +88,8 @@ pnpm i
         "/path/to/hubspot-mcp/index.js"
       ],
       "env": {
-        "HUBSPOT_ACCESS_TOKEN": "your-access-token-here"
+        "HUBSPOT_ACCESS_TOKEN": "your-access-token-here",
+        "HUBSPOT_CLIENT_SECRET": "your-client-secret-here" // Optional
       }
     }
   }
@@ -94,11 +98,12 @@ pnpm i
 
 ## Config Variables
 
-| Variable               | Description                               | Required? | Default |
-|------------------------|-------------------------------------------|-----------|---------|
-| `HUBSPOT_ACCESS_TOKEN` | Access Token for Hubspot Application      | Yes       |         |
-| `PORT                ` | Port for Streamable HTTP transport method | No        | `3000`  |
-| `TELEMETRY_ENABLED`    | Enable telemetry                          | No        | `true`  |
+| Variable                 | Description                                              | Required? | Default |
+|--------------------------|----------------------------------------------------------|-----------|---------|
+| `HUBSPOT_ACCESS_TOKEN`   | Access Token for Hubspot Application                     | Yes       |         |
+| `HUBSPOT_CLIENT_SECRET`  | Client Secret for enhanced authentication (optional)     | No        |         |
+| `PORT`                   | Port for Streamable HTTP transport method               | No        | `3000`  |
+| `TELEMETRY_ENABLED`      | Enable telemetry                                         | No        | `true`  |
 
 ## Supported Tools
 
