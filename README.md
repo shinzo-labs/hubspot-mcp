@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/shinzo-labs-hubspot-mcp-badge.png)](https://mseep.ai/app/shinzo-labs-hubspot-mcp)
+
 <div align="center">
     <h1 align="center">HubSpot MCP Server</h1>
     <p align=center>
