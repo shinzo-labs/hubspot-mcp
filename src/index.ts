@@ -22,7 +22,7 @@ function formatResponse(data: any) {
   return { content: [{ type: "text", text }] }
 }
 
-async function makeApiRequest(apiKey: string, endpoint: string, params: Record<string, any> = {}, method = 'GET', body: Record<string, any> | null = null) {
+async function makeApiRequest(apiKey: string, endpoint: string, params: Record<string, any> = {}, method = 'GET', body: Record<string, any> | null = null, clientSecret?: string) {
   if (!apiKey) {
     throw new Error("HUBSPOT_ACCESS_TOKEN environment variable is not set")
   }
@@ -37,6 +37,10 @@ async function makeApiRequest(apiKey: string, endpoint: string, params: Record<s
   const headers: Record<string, string> = {
     'Accept': 'application/json',
     'Authorization': `Bearer ${apiKey}`
+  }
+
+  if (clientSecret) {
+    headers['X-HubSpot-Client-Secret'] = clientSecret
   }
 
   if (body) headers['Content-Type'] = 'application/json'
@@ -54,9 +58,9 @@ async function makeApiRequest(apiKey: string, endpoint: string, params: Record<s
   return await response.json()
 }
 
-async function makeApiRequestWithErrorHandling(apiKey: string, endpoint: string, params: Record<string, any> = {}, method = 'GET', body: Record<string, any> | null = null) {
+async function makeApiRequestWithErrorHandling(apiKey: string, endpoint: string, params: Record<string, any> = {}, method = 'GET', body: Record<string, any> | null = null, clientSecret?: string) {
   try {
-    const data = await makeApiRequest(apiKey, endpoint, params, method, body)
+    const data = await makeApiRequest(apiKey, endpoint, params, method, body, clientSecret)
     return formatResponse(data)
   } catch (error: any) {
     return formatResponse(`Error performing request: ${error.message}`)
@@ -74,8 +78,88 @@ async function handleEndpoint(apiCall: () => Promise<any>) {
 function getConfig(config: any) {
   return {
     hubspotAccessToken: config?.HUBSPOT_ACCESS_TOKEN || process.env.HUBSPOT_ACCESS_TOKEN,
+    hubspotClientSecret: config?.HUBSPOT_CLIENT_SECRET || process.env.HUBSPOT_CLIENT_SECRET,
+    hubspotClientId: config?.HUBSPOT_CLIENT_ID || process.env.HUBSPOT_CLIENT_ID,
+    hubspotRedirectUri: config?.HUBSPOT_REDIRECT_URI || process.env.HUBSPOT_REDIRECT_URI,
+    hubspotRefreshToken: config?.HUBSPOT_REFRESH_TOKEN || process.env.HUBSPOT_REFRESH_TOKEN,
     telemetryEnabled: config?.TELEMETRY_ENABLED || process.env.TELEMETRY_ENABLED || "true"
   }
+}
+
+// OAuth helper functions
+interface OAuthTokenResponse {
+  access_token: string
+  refresh_token: string
+  expires_in: number
+  token_type: string
+}
+
+async function exchangeCodeForTokens(
+  clientId: string,
+  clientSecret: string,
+  redirectUri: string,
+  code: string
+): Promise<OAuthTokenResponse> {
+  const response = await fetch('https://api.hubapi.com/oauth/v1/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code',
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
+      code: code,
+    }),
+  })
+
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`OAuth token exchange failed: ${error}`)
+  }
+
+  return await response.json()
+}
+
+async function refreshAccessToken(
+  clientId: string,
+  clientSecret: string,
+  refreshToken: string
+): Promise<OAuthTokenResponse> {
+  const response = await fetch('https://api.hubapi.com/oauth/v1/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+    }),
+  })
+
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`OAuth token refresh failed: ${error}`)
+  }
+
+  return await response.json()
+}
+
+function generateAuthorizationUrl(
+  clientId: string,
+  redirectUri: string,
+  scopes: string[]
+): string {
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    scope: scopes.join(' '),
+  })
+
+  return `https://app.hubspot.com/oauth/authorize?${params.toString()}`
 }
 
 function createServer({ config }: { config?: any } = {}) {
@@ -86,7 +170,14 @@ function createServer({ config }: { config?: any } = {}) {
   }
   const server = new McpServer(serverInfo)
 
-  const { hubspotAccessToken, telemetryEnabled } = getConfig(config)
+  const {
+    hubspotAccessToken,
+    hubspotClientSecret,
+    hubspotClientId,
+    hubspotRedirectUri,
+    hubspotRefreshToken,
+    telemetryEnabled
+  } = getConfig(config)
 
   if (telemetryEnabled !== "false") {
     const telemetry = instrumentServer(server, {
@@ -95,6 +186,95 @@ function createServer({ config }: { config?: any } = {}) {
       exporterEndpoint: "https://api.otel.shinzo.tech/v1"
     })
   }
+
+  // OAuth Tools
+  server.tool("oauth_get_authorization_url",
+    "Generate OAuth authorization URL for HubSpot. Users should visit this URL to grant permissions. The default redirect URI is http://localhost:3000/oauth/callback",
+    {
+      scopes: z.array(z.string()).optional().describe("OAuth scopes to request (default: crm.objects.contacts.read crm.objects.contacts.write crm.objects.companies.read crm.objects.companies.write)"),
+      redirectUri: z.string().optional().describe("Override the default redirect URI")
+    },
+    async (params) => handleEndpoint(async () => {
+      const clientId = hubspotClientId
+      if (!clientId) {
+        throw new Error("HUBSPOT_CLIENT_ID environment variable is not set. Required for OAuth.")
+      }
+
+      const redirectUri = params.redirectUri || hubspotRedirectUri || "http://localhost:3000/oauth/callback"
+      const scopes = params.scopes || [
+        "crm.objects.contacts.read",
+        "crm.objects.contacts.write",
+        "crm.objects.companies.read",
+        "crm.objects.companies.write",
+        "crm.objects.deals.read",
+        "crm.objects.deals.write"
+      ]
+
+      const authUrl = generateAuthorizationUrl(clientId, redirectUri, scopes)
+
+      return formatResponse({
+        authorization_url: authUrl,
+        instructions: "Visit this URL to authorize the application. After authorization, you'll receive a code parameter in the redirect URL. Use oauth_exchange_code to exchange it for tokens.",
+        redirect_uri: redirectUri
+      })
+    })
+  )
+
+  server.tool("oauth_exchange_code",
+    "Exchange OAuth authorization code for access and refresh tokens",
+    {
+      code: z.string().describe("Authorization code received from the OAuth callback"),
+      redirectUri: z.string().optional().describe("Must match the redirect URI used when generating the authorization URL")
+    },
+    async (params) => handleEndpoint(async () => {
+      const clientId = hubspotClientId
+      const clientSecret = hubspotClientSecret
+
+      if (!clientId || !clientSecret) {
+        throw new Error("HUBSPOT_CLIENT_ID and HUBSPOT_CLIENT_SECRET environment variables are required for OAuth token exchange.")
+      }
+
+      const redirectUri = params.redirectUri || hubspotRedirectUri || "http://localhost:3000/oauth/callback"
+
+      const tokens = await exchangeCodeForTokens(clientId, clientSecret, redirectUri, params.code)
+
+      return formatResponse({
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_in: tokens.expires_in,
+        instructions: "Store these tokens securely. Set HUBSPOT_ACCESS_TOKEN to the access_token value and HUBSPOT_REFRESH_TOKEN to the refresh_token value in your environment variables. Access tokens expire, use oauth_refresh_token when needed."
+      })
+    })
+  )
+
+  server.tool("oauth_refresh_token",
+    "Refresh an expired OAuth access token using a refresh token",
+    {
+      refreshToken: z.string().optional().describe("Refresh token (uses HUBSPOT_REFRESH_TOKEN env var if not provided)")
+    },
+    async (params) => handleEndpoint(async () => {
+      const clientId = hubspotClientId
+      const clientSecret = hubspotClientSecret
+      const refreshToken = params.refreshToken || hubspotRefreshToken
+
+      if (!clientId || !clientSecret) {
+        throw new Error("HUBSPOT_CLIENT_ID and HUBSPOT_CLIENT_SECRET environment variables are required for OAuth token refresh.")
+      }
+
+      if (!refreshToken) {
+        throw new Error("Refresh token is required. Provide it as a parameter or set HUBSPOT_REFRESH_TOKEN environment variable.")
+      }
+
+      const tokens = await refreshAccessToken(clientId, clientSecret, refreshToken)
+
+      return formatResponse({
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_in: tokens.expires_in,
+        instructions: "Update HUBSPOT_ACCESS_TOKEN with the new access_token value. The refresh_token may also be updated."
+      })
+    })
+  )
 
   // Companies: https://developers.hubspot.com/docs/reference/api/crm/objects/companies
 
@@ -135,7 +315,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -151,7 +331,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v3/objects/companies/${params.companyId}`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -169,7 +349,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -201,7 +381,7 @@ function createServer({ config }: { config?: any } = {}) {
           limit: params.limit,
           after: params.after,
           sorts: params.sorts
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -225,7 +405,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/companies/batch/create'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -243,7 +423,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/companies/batch/update'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -260,7 +440,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           archived: params.archived,
           properties: params.properties?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -289,7 +469,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/properties/companies'
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', params)
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', params, hubspotClientSecret)
       })
     }
   )
@@ -313,7 +493,7 @@ function createServer({ config }: { config?: any } = {}) {
           after: params.after,
           limit: params.limit,
           archived: params.archived
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -332,7 +512,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -356,7 +536,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -373,7 +553,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v3/objects/${params.objectType}/${params.objectId}`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -387,7 +567,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/${params.objectType}/${params.objectId}`
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE', hubspotClientSecret)
       })
     }
   )
@@ -420,7 +600,7 @@ function createServer({ config }: { config?: any } = {}) {
           limit: params.limit,
           after: params.after,
           sorts: params.sorts
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -445,7 +625,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v3/objects/${params.objectType}/batch/create`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -467,7 +647,7 @@ function createServer({ config }: { config?: any } = {}) {
           idProperty: params.idProperty,
           inputs: params.objectIds.map((id: string) => ({ id })),
           properties: params.properties
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -486,7 +666,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v3/objects/${params.objectType}/batch/update`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -502,7 +682,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v3/objects/${params.objectType}/batch/archive`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.objectIds.map((id: string) => ({ id }))
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -518,7 +698,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v4/associations/${params.fromObjectType}/${params.toObjectType}/types`
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint)
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, hubspotClientSecret)
       })
     }
   )
@@ -538,7 +718,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           after: params.after,
           limit: params.limit
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -560,7 +740,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v4/objects/${params.fromObjectType}/${params.fromObjectId}/associations/${params.toObjectType}/${params.toObjectId}`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PUT', {
           types: params.associationTypes
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -576,7 +756,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v4/objects/${params.fromObjectType}/${params.fromObjectId}/associations/${params.toObjectType}/${params.toObjectId}`
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE', hubspotClientSecret)
       })
     }
   )
@@ -600,7 +780,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v4/associations/${params.fromObjectType}/${params.toObjectType}/batch/create`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -620,7 +800,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v4/associations/${params.fromObjectType}/${params.toObjectType}/batch/archive`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -666,7 +846,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -682,7 +862,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v3/objects/contacts/${params.contactId}`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -700,7 +880,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -732,7 +912,7 @@ function createServer({ config }: { config?: any } = {}) {
           limit: params.limit,
           after: params.after,
           sorts: params.sorts
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -756,7 +936,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/contacts/batch/create'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -774,7 +954,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/contacts/batch/update'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -791,7 +971,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           archived: params.archived,
           properties: params.properties?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -820,7 +1000,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/properties/contacts'
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', params)
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', params, hubspotClientSecret)
       })
     }
   )
@@ -867,7 +1047,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -883,7 +1063,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v3/objects/leads/${params.leadId}`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -901,7 +1081,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -933,7 +1113,7 @@ function createServer({ config }: { config?: any } = {}) {
           limit: params.limit,
           after: params.after,
           sorts: params.sorts
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -957,7 +1137,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/leads/batch/create'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -975,7 +1155,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/leads/batch/update'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -992,7 +1172,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           archived: params.archived,
           properties: params.properties?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1021,7 +1201,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = '/crm/v3/properties/leads'
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', params)
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', params, hubspotClientSecret)
       })
     }
   )
@@ -1046,7 +1226,7 @@ function createServer({ config }: { config?: any } = {}) {
           createdAfter: params.createdAfter,
           createdBefore: params.createdBefore,
           properties: params.properties?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1064,7 +1244,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1096,7 +1276,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1120,7 +1300,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v3/objects/meetings/${params.meetingId}`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1133,7 +1313,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/meetings/${params.meetingId}`
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE', hubspotClientSecret)
       })
     }
   )
@@ -1165,7 +1345,7 @@ function createServer({ config }: { config?: any } = {}) {
           limit: params.limit,
           after: params.after,
           sorts: params.sorts
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1198,7 +1378,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/meetings/batch/create'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1224,7 +1404,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/meetings/batch/update'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1239,7 +1419,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/meetings/batch/archive'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.meetingIds.map((id: string) => ({ id }))
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1270,7 +1450,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1288,7 +1468,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1304,7 +1484,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v3/objects/notes/${params.noteId}`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1317,7 +1497,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/notes/${params.noteId}`
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE', hubspotClientSecret)
       })
     }
   )
@@ -1340,7 +1520,7 @@ function createServer({ config }: { config?: any } = {}) {
           properties: params.properties?.join(','),
           associations: params.associations?.join(','),
           archived: params.archived
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1372,7 +1552,7 @@ function createServer({ config }: { config?: any } = {}) {
           limit: params.limit,
           after: params.after,
           sorts: params.sorts
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1396,7 +1576,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/notes/batch/create'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1415,7 +1595,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/notes/batch/read'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1433,7 +1613,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/notes/batch/update'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1448,7 +1628,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/notes/batch/archive'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.noteIds.map((id: string) => ({ id }))
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1484,7 +1664,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1502,7 +1682,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1518,7 +1698,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v3/objects/tasks/${params.taskId}`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1531,7 +1711,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/tasks/${params.taskId}`
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE', hubspotClientSecret)
       })
     }
   )
@@ -1554,7 +1734,7 @@ function createServer({ config }: { config?: any } = {}) {
           properties: params.properties?.join(','),
           associations: params.associations?.join(','),
           archived: params.archived
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1586,7 +1766,7 @@ function createServer({ config }: { config?: any } = {}) {
           limit: params.limit,
           after: params.after,
           sorts: params.sorts
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1610,7 +1790,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/tasks/batch/create'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1629,7 +1809,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/tasks/batch/read'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1647,7 +1827,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/tasks/batch/update'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1662,7 +1842,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/tasks/batch/archive'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.taskIds.map((id: string) => ({ id }))
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1692,7 +1872,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/engagements/v1/engagements/${params.engagementId}`
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint)
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, hubspotClientSecret)
       })
     }
   )
@@ -1717,7 +1897,7 @@ function createServer({ config }: { config?: any } = {}) {
           engagement: params.engagement,
           associations: params.associations,
           metadata: params.metadata
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1735,7 +1915,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           engagement: params.engagement,
           metadata: params.metadata
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1758,7 +1938,7 @@ function createServer({ config }: { config?: any } = {}) {
           startTime: params.startTime,
           endTime: params.endTime,
           activityTypes: params.activityTypes?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1771,7 +1951,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/engagements/v1/engagements/${params.engagementId}`
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE', hubspotClientSecret)
       })
     }
   )
@@ -1796,7 +1976,7 @@ function createServer({ config }: { config?: any } = {}) {
           activityTypes: params.activityTypes?.join(','),
           limit: params.limit,
           offset: params.offset
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1833,7 +2013,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1851,7 +2031,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1867,7 +2047,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v3/objects/calls/${params.callId}`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1880,7 +2060,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/calls/${params.callId}`
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE', hubspotClientSecret)
       })
     }
   )
@@ -1903,7 +2083,7 @@ function createServer({ config }: { config?: any } = {}) {
           properties: params.properties?.join(','),
           associations: params.associations?.join(','),
           archived: params.archived
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1935,7 +2115,7 @@ function createServer({ config }: { config?: any } = {}) {
           limit: params.limit,
           after: params.after,
           sorts: params.sorts
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1959,7 +2139,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/calls/batch/create'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1978,7 +2158,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/calls/batch/read'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -1996,7 +2176,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/calls/batch/update'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2011,7 +2191,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/calls/batch/archive'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.callIds.map((id: string) => ({ id }))
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2055,7 +2235,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           properties: params.properties,
           associations: params.associations
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2073,7 +2253,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           properties: params.properties?.join(','),
           associations: params.associations?.join(',')
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2089,7 +2269,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/crm/v3/objects/emails/${params.emailId}`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', {
           properties: params.properties
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2102,7 +2282,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/crm/v3/objects/emails/${params.emailId}`
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE', hubspotClientSecret)
       })
     }
   )
@@ -2125,7 +2305,7 @@ function createServer({ config }: { config?: any } = {}) {
           properties: params.properties?.join(','),
           associations: params.associations?.join(','),
           archived: params.archived
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2157,7 +2337,7 @@ function createServer({ config }: { config?: any } = {}) {
           limit: params.limit,
           after: params.after,
           sorts: params.sorts
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2181,7 +2361,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/emails/batch/create'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2200,7 +2380,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/emails/batch/read'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2218,7 +2398,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/emails/batch/update'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.inputs
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2233,7 +2413,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/crm/v3/objects/emails/batch/archive'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           inputs: params.emailIds.map((id: string) => ({ id }))
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2257,7 +2437,7 @@ function createServer({ config }: { config?: any } = {}) {
       return handleEndpoint(async () => {
         const subscriptionEndpointPath = params.subscriptionId ? `/subscription/${params.subscriptionId}` : ''
         const endpoint = `/communication-preferences/v3/status/email/${params.contactId}${subscriptionEndpointPath}`
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint)
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, hubspotClientSecret)
       })
     }
   )
@@ -2272,7 +2452,7 @@ function createServer({ config }: { config?: any } = {}) {
     async (params) => {
       return handleEndpoint(async () => {
         const endpoint = `/communication-preferences/v3/status/email/${params.contactId}/subscription/${params.subscriptionId}`
-        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PUT', params.preferences)
+        return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PUT', params.preferences, hubspotClientSecret)
       })
     }
   )
@@ -2290,7 +2470,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PUT', {
           portalSubscriptionLegalBasis: params.portalSubscriptionLegalBasis,
           portalSubscriptionLegalBasisExplanation: params.portalSubscriptionLegalBasisExplanation
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2308,7 +2488,7 @@ function createServer({ config }: { config?: any } = {}) {
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PUT', {
           portalSubscriptionLegalBasis: params.portalSubscriptionLegalBasis,
           portalSubscriptionLegalBasisExplanation: params.portalSubscriptionLegalBasisExplanation
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2323,7 +2503,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = '/communication-preferences/v3/definitions'
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
           archived: params.archived
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2339,7 +2519,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/communication-preferences/v3/status/email/subscription/${params.subscriptionId}/bulk`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
           contactIds: params.contactIds
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2360,7 +2540,7 @@ function createServer({ config }: { config?: any } = {}) {
         const endpoint = `/communication-preferences/v3/status/email/subscription/${params.subscriptionId}/bulk`
         return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PUT', {
           updates: params.updates
-        })
+        }, hubspotClientSecret)
       })
     }
   )
@@ -2389,7 +2569,7 @@ function createServer({ config }: { config?: any } = {}) {
         limit: params.limit,
         after: params.after,
         properties: params.properties?.join(',')
-      })
+      }, hubspotClientSecret)
     })
   )
 
@@ -2405,7 +2585,7 @@ function createServer({ config }: { config?: any } = {}) {
       return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
         properties: params.properties?.join(','),
         associations: params.associations?.join(',')
-      })
+      }, hubspotClientSecret)
     })
   )
 
@@ -2414,7 +2594,7 @@ function createServer({ config }: { config?: any } = {}) {
     { properties: productPropertiesSchema },
     async params => handleEndpoint(async () => {
       const endpoint = '/crm/v3/objects/products'
-      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { properties: params.properties })
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { properties: params.properties }, hubspotClientSecret)
     })
   )
 
@@ -2423,7 +2603,7 @@ function createServer({ config }: { config?: any } = {}) {
     { productId: z.string(), properties: productPropertiesSchema    },
     async params => handleEndpoint(async () => {
       const endpoint = `/crm/v3/objects/products/${params.productId}`
-      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', { properties: params.properties })
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', { properties: params.properties }, hubspotClientSecret)
     })
   )
 
@@ -2432,7 +2612,7 @@ function createServer({ config }: { config?: any } = {}) {
     { productId: z.string() },
     async params => handleEndpoint(async () => {
       const endpoint = `/crm/v3/objects/products/${params.productId}`
-      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE')
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE', hubspotClientSecret)
     })
   )
 
@@ -2461,7 +2641,7 @@ function createServer({ config }: { config?: any } = {}) {
         limit: params.limit,
         after: params.after,
         sorts: params.sorts
-      })
+      }, hubspotClientSecret)
     })
   )
 
@@ -2472,7 +2652,7 @@ function createServer({ config }: { config?: any } = {}) {
     },
     async params => handleEndpoint(async () => {
       const endpoint = '/crm/v3/objects/products/batch/archive'
-      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { inputs: params.productIds.map((id: string) => ({ id })) })
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { inputs: params.productIds.map((id: string) => ({ id })) }, hubspotClientSecret)
     })
   )
 
@@ -2483,7 +2663,7 @@ function createServer({ config }: { config?: any } = {}) {
     },
     async params => handleEndpoint(async () => {
       const endpoint = '/crm/v3/objects/products/batch/create'
-      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { inputs: params.inputs })
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { inputs: params.inputs }, hubspotClientSecret)
     })
   )
 
@@ -2497,7 +2677,7 @@ function createServer({ config }: { config?: any } = {}) {
     },
     async params => handleEndpoint(async () => {
       const endpoint = '/crm/v3/objects/products/batch/read'
-      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { inputs: params.productIds.map((id: string) => ({ id })) })
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { inputs: params.productIds.map((id: string) => ({ id })) }, hubspotClientSecret)
     })
   )
 
@@ -2513,19 +2693,232 @@ function createServer({ config }: { config?: any } = {}) {
     },
     async params => handleEndpoint(async () => {
       const endpoint = '/crm/v3/objects/products/batch/update'
-      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { inputs: params.inputs })
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', { inputs: params.inputs }, hubspotClientSecret)
+    })
+  )
+
+  // Pipelines: https://developers.hubspot.com/docs/api-reference/crm-pipelines-v3/guide
+  server.tool("pipelines_list",
+    "Get all pipelines for a specific object type (e.g., deals, tickets)",
+    {
+      objectType: z.enum(['deals', 'tickets', 'leads'])
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = `/crm/v3/pipelines/${params.objectType}`
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'GET', null, hubspotClientSecret)
+    })
+  )
+
+  server.tool("pipelines_get",
+    "Get a specific pipeline by ID for an object type",
+    {
+      objectType: z.enum(['deals', 'tickets', 'leads']),
+      pipelineId: z.string()
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = `/crm/v3/pipelines/${params.objectType}/${params.pipelineId}`
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'GET', null, hubspotClientSecret)
+    })
+  )
+
+  server.tool("pipelines_create",
+    "Create a new pipeline for an object type with stages",
+    {
+      objectType: z.enum(['deals', 'tickets', 'leads']),
+      label: z.string(),
+      displayOrder: z.number().optional(),
+      stages: z.array(z.object({
+        label: z.string(),
+        displayOrder: z.number(),
+        metadata: z.record(z.any()).optional()
+      }))
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = `/crm/v3/pipelines/${params.objectType}`
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
+        label: params.label,
+        displayOrder: params.displayOrder,
+        stages: params.stages
+      }, hubspotClientSecret)
+    })
+  )
+
+  server.tool("pipelines_update",
+    "Update an existing pipeline's details (label, display order)",
+    {
+      objectType: z.enum(['deals', 'tickets', 'leads']),
+      pipelineId: z.string(),
+      label: z.string().optional(),
+      displayOrder: z.number().optional()
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = `/crm/v3/pipelines/${params.objectType}/${params.pipelineId}`
+      const body: any = {}
+      if (params.label) body.label = params.label
+      if (params.displayOrder !== undefined) body.displayOrder = params.displayOrder
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', body, hubspotClientSecret)
+    })
+  )
+
+  server.tool("pipelines_delete",
+    "Delete a pipeline by ID",
+    {
+      objectType: z.enum(['deals', 'tickets', 'leads']),
+      pipelineId: z.string()
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = `/crm/v3/pipelines/${params.objectType}/${params.pipelineId}`
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE', null, hubspotClientSecret)
+    })
+  )
+
+  server.tool("pipelines_stage_create",
+    "Create a new stage in an existing pipeline",
+    {
+      objectType: z.enum(['deals', 'tickets', 'leads']),
+      pipelineId: z.string(),
+      label: z.string(),
+      displayOrder: z.number(),
+      metadata: z.record(z.any()).optional()
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = `/crm/v3/pipelines/${params.objectType}/${params.pipelineId}/stages`
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
+        label: params.label,
+        displayOrder: params.displayOrder,
+        metadata: params.metadata
+      }, hubspotClientSecret)
+    })
+  )
+
+  server.tool("pipelines_stage_update",
+    "Update a pipeline stage's details",
+    {
+      objectType: z.enum(['deals', 'tickets', 'leads']),
+      pipelineId: z.string(),
+      stageId: z.string(),
+      label: z.string().optional(),
+      displayOrder: z.number().optional(),
+      metadata: z.record(z.any()).optional()
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = `/crm/v3/pipelines/${params.objectType}/${params.pipelineId}/stages/${params.stageId}`
+      const body: any = {}
+      if (params.label) body.label = params.label
+      if (params.displayOrder !== undefined) body.displayOrder = params.displayOrder
+      if (params.metadata) body.metadata = params.metadata
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'PATCH', body, hubspotClientSecret)
+    })
+  )
+
+  server.tool("pipelines_stage_delete",
+    "Delete a stage from a pipeline",
+    {
+      objectType: z.enum(['deals', 'tickets', 'leads']),
+      pipelineId: z.string(),
+      stageId: z.string()
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = `/crm/v3/pipelines/${params.objectType}/${params.pipelineId}/stages/${params.stageId}`
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE', null, hubspotClientSecret)
+    })
+  )
+
+  server.tool("pipelines_audit",
+    "View audit history of changes made to a pipeline",
+    {
+      objectType: z.enum(['deals', 'tickets', 'leads']),
+      pipelineId: z.string()
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = `/crm/v3/pipelines/${params.objectType}/${params.pipelineId}/audit`
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'GET', null, hubspotClientSecret)
+    })
+  )
+
+  // Workflows: https://developers.hubspot.com/docs/guides/api/automation/workflows-v4
+  server.tool("workflows_list",
+    "Get all workflows in your HubSpot account",
+    {
+      limit: z.number().optional(),
+      after: z.string().optional()
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = '/automation/v4/flows'
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {
+        limit: params.limit,
+        after: params.after
+      }, 'GET', null, hubspotClientSecret)
+    })
+  )
+
+  server.tool("workflows_get",
+    "Get a specific workflow by ID",
+    {
+      flowId: z.string()
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = `/automation/v4/flows/${params.flowId}`
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'GET', null, hubspotClientSecret)
+    })
+  )
+
+  server.tool("workflows_create",
+    "Create a new workflow (BETA - requires workflow specification)",
+    {
+      name: z.string(),
+      type: z.enum(['CONTACT_FLOW', 'PLATFORM_FLOW']),
+      enabled: z.boolean().optional(),
+      actions: z.array(z.any()).optional(),
+      enrollmentTriggers: z.array(z.any()).optional()
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = '/automations/v4/flows'
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
+        name: params.name,
+        type: params.type,
+        enabled: params.enabled,
+        actions: params.actions,
+        enrollmentTriggers: params.enrollmentTriggers
+      }, hubspotClientSecret)
+    })
+  )
+
+  server.tool("workflows_delete",
+    "Delete a workflow by ID",
+    {
+      flowId: z.string()
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = `/automations/v4/flows/${params.flowId}`
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'DELETE', null, hubspotClientSecret)
+    })
+  )
+
+  server.tool("workflows_batch_read",
+    "Get multiple workflows by their IDs in a single request",
+    {
+      flowIds: z.array(z.string())
+    },
+    async params => handleEndpoint(async () => {
+      const endpoint = '/automation/v4/flows/batch/read'
+      return await makeApiRequestWithErrorHandling(hubspotAccessToken, endpoint, {}, 'POST', {
+        inputs: params.flowIds.map((id: string) => ({ id }))
+      }, hubspotClientSecret)
     })
   )
 
   return server.server
 }
 
-// Stdio Server 
+// Stdio Server
 const stdioServer = createServer({})
 const transport = new StdioServerTransport()
 await stdioServer.connect(transport)
 
-// Streamable HTTP Server
-const { app } = createStatefulServer(createServer)
-const PORT = process.env.PORT || 3000
-app.listen(PORT)
+// Streamable HTTP Server (optional - only start if ENABLE_HTTP is set)
+if (process.env.ENABLE_HTTP === 'true') {
+  const { app } = createStatefulServer(createServer)
+  const PORT = process.env.PORT || 3000
+  app.listen(PORT)
+}

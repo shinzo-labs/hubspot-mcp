@@ -17,14 +17,22 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) s
 - Complete coverage of the HubSpot CRM API
 - Support for all standard CRM objects (companies, contacts, deals, etc.)
 - Advanced association management with CRM Associations v4
+- Pipeline management for deals, tickets, and leads
+- Workflow automation (BETA - v4 Automation API)
 - Company-specific endpoints with property validation
 - Batch operations for efficient data management
 - Advanced search and filtering capabilities
 - Type-safe parameter validation with [Zod](https://zod.dev/)
+- Full OAuth 2.0 support with token refresh
+- Optional client secret support for enhanced authentication
 
 ## Prerequisites
 
-If you don't have an API key, follow the steps [here](https://developers.hubspot.com/docs/guides/api/overview) to obtain an access token. OAuth support is planned as a future enhancement.
+You can authenticate with HubSpot using either:
+
+1. **Private App Access Token** (Recommended for server-to-server): Follow the steps [here](https://developers.hubspot.com/docs/guides/api/overview) to obtain an access token. Optionally, you may also need a Client Secret for certain HubSpot API operations that require additional security.
+
+2. **OAuth 2.0** (Recommended for user-facing applications): Create a public app in your [HubSpot Developer Account](https://developers.hubspot.com/get-started), configure your OAuth redirect URI, and use the OAuth tools to obtain access and refresh tokens. See the OAuth Setup section below for detailed instructions.
 
 ## Client Configuration
 
@@ -56,7 +64,8 @@ To install the server locally with `npx`, add the following to your MCP client `
         "@shinzolabs/hubspot-mcp"
       ],
       "env": {
-        "HUBSPOT_ACCESS_TOKEN": "your-access-token-here"
+        "HUBSPOT_ACCESS_TOKEN": "your-access-token-here",
+        "HUBSPOT_CLIENT_SECRET": "your-client-secret-here" // Optional
       }
     }
   }
@@ -85,7 +94,8 @@ pnpm i
         "/path/to/hubspot-mcp/index.js"
       ],
       "env": {
-        "HUBSPOT_ACCESS_TOKEN": "your-access-token-here"
+        "HUBSPOT_ACCESS_TOKEN": "your-access-token-here",
+        "HUBSPOT_CLIENT_SECRET": "your-client-secret-here" // Optional
       }
     }
   }
@@ -94,13 +104,87 @@ pnpm i
 
 ## Config Variables
 
-| Variable               | Description                               | Required? | Default |
-|------------------------|-------------------------------------------|-----------|---------|
-| `HUBSPOT_ACCESS_TOKEN` | Access Token for Hubspot Application      | Yes       |         |
-| `PORT                ` | Port for Streamable HTTP transport method | No        | `3000`  |
-| `TELEMETRY_ENABLED`    | Enable telemetry                          | No        | `true`  |
+| Variable                 | Description                                              | Required? | Default |
+|--------------------------|----------------------------------------------------------|-----------|---------|
+| `HUBSPOT_ACCESS_TOKEN`   | Access Token for HubSpot Application (from Private App or OAuth)                     | Yes*       |         |
+| `HUBSPOT_CLIENT_SECRET`  | Client Secret for enhanced authentication or OAuth       | No**        |         |
+| `HUBSPOT_CLIENT_ID`      | OAuth Client ID (required for OAuth flow)                | No**        |         |
+| `HUBSPOT_REDIRECT_URI`   | OAuth redirect URI (default: http://localhost:3000/oauth/callback) | No        | `http://localhost:3000/oauth/callback` |
+| `HUBSPOT_REFRESH_TOKEN`  | OAuth refresh token for automatic token renewal          | No        |         |
+| `PORT`                   | Port for Streamable HTTP transport method               | No        | `3000`  |
+| `TELEMETRY_ENABLED`      | Enable telemetry                                         | No        | `true`  |
+
+\* Required unless using OAuth flow to obtain tokens
+\** Required for OAuth authentication
+
+## OAuth Setup
+
+To use OAuth authentication with HubSpot:
+
+### 1. Create a HubSpot App
+
+1. Go to your [HubSpot Developer Account](https://developers.hubspot.com/)
+2. Create a new public app or select an existing one
+3. Navigate to the "Auth" tab in your app settings
+4. Add your redirect URI (default: `http://localhost:3000/oauth/callback`)
+5. Note your **Client ID** and **Client Secret**
+
+### 2. Configure Environment Variables
+
+Set the following environment variables:
+```bash
+HUBSPOT_CLIENT_ID="your-client-id"
+HUBSPOT_CLIENT_SECRET="your-client-secret"
+HUBSPOT_REDIRECT_URI="http://localhost:3000/oauth/callback"  # Optional, this is the default
+```
+
+### 3. Obtain Access Token
+
+Use the OAuth MCP tools to complete the authentication flow:
+
+**Step 1: Generate Authorization URL**
+```javascript
+// Use the oauth_get_authorization_url tool
+{
+  "scopes": ["crm.objects.contacts.read", "crm.objects.contacts.write", "crm.objects.companies.read", "crm.objects.companies.write"]
+}
+```
+
+**Step 2: Visit the URL and Authorize**
+Visit the authorization URL returned by the tool. After granting permissions, HubSpot will redirect to your redirect URI with a `code` parameter.
+
+**Step 3: Exchange Code for Tokens**
+```javascript
+// Use the oauth_exchange_code tool with the code from the redirect
+{
+  "code": "authorization-code-from-redirect"
+}
+```
+
+**Step 4: Store Tokens**
+The response will include `access_token` and `refresh_token`. Store these securely:
+```bash
+HUBSPOT_ACCESS_TOKEN="your-access-token"
+HUBSPOT_REFRESH_TOKEN="your-refresh-token"
+```
+
+### 4. Token Refresh
+
+Access tokens expire after a few hours. Use the `oauth_refresh_token` tool to obtain a new access token:
+```javascript
+// This will use HUBSPOT_REFRESH_TOKEN from environment
+{}
+```
+
+The redirect URL for OAuth is determined by the `HUBSPOT_REDIRECT_URI` environment variable, or defaults to `http://localhost:3000/oauth/callback`.
 
 ## Supported Tools
+
+### OAuth
+
+  - `oauth_get_authorization_url`: Generate OAuth authorization URL for HubSpot
+  - `oauth_exchange_code`: Exchange authorization code for access and refresh tokens
+  - `oauth_refresh_token`: Refresh an expired access token using a refresh token
 
 ### Core CRM Objects
 
@@ -252,6 +336,26 @@ pnpm i
   - `products_batch_read`: Read a batch of products by internal ID, or unique property values. Retrieve records by the `idProperty` parameter to retrieve records by a custom unique value property.
   - `products_batch_update`: Update a batch of products by internal ID, or unique values specified by the `idProperty` query param.
   - `products_batch_archive`: Archive a batch of products by ID
+
+### Pipelines
+
+  - `pipelines_list`: Get all pipelines for a specific object type (deals, tickets, leads)
+  - `pipelines_get`: Get a specific pipeline by ID
+  - `pipelines_create`: Create a new pipeline with stages
+  - `pipelines_update`: Update an existing pipeline's label or display order
+  - `pipelines_delete`: Delete a pipeline
+  - `pipelines_stage_create`: Create a new stage in a pipeline
+  - `pipelines_stage_update`: Update a pipeline stage's details
+  - `pipelines_stage_delete`: Delete a stage from a pipeline
+  - `pipelines_audit`: View audit history of changes made to a pipeline
+
+### Workflows (BETA)
+
+  - `workflows_list`: Get all workflows in your HubSpot account
+  - `workflows_get`: Get a specific workflow by ID
+  - `workflows_create`: Create a new workflow (requires workflow specification)
+  - `workflows_delete`: Delete a workflow
+  - `workflows_batch_read`: Get multiple workflows by their IDs in a single request
 
 ## Contributing
 
