@@ -1,21 +1,30 @@
-FROM node:lts-alpine
+# Use Node.js 20 LTS
+FROM node:20-alpine
 
+# Set working directory
 WORKDIR /app
 
-ENV NODE_OPTIONS="--max-old-space-size=4096"
+# Set Node options for memory
+ENV NODE_OPTIONS="--max-old-space-size=2048"
 
-RUN npm install -g pnpm
+# Copy package files
+COPY --chown=node:node package*.json ./
 
-COPY --chown=node:node package.json pnpm-lock.yaml ./
+# Install dependencies using npm
+RUN npm ci
 
-RUN pnpm fetch
-RUN pnpm install -r --offline
-
+# Copy source files
 COPY --chown=node:node src/ ./src/
 COPY --chown=node:node tsconfig.json ./
 
-RUN pnpm build
+# Build TypeScript
+RUN npm run build
 
+# Switch to non-root user
 USER node
 
-ENTRYPOINT ["pnpm", "run", "start"]
+# Expose port
+EXPOSE 3000
+
+# Start the application
+CMD ["npm", "start"]
