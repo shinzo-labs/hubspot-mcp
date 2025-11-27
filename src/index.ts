@@ -79,8 +79,87 @@ function getConfig(config: any) {
   return {
     hubspotAccessToken: config?.HUBSPOT_ACCESS_TOKEN || process.env.HUBSPOT_ACCESS_TOKEN,
     hubspotClientSecret: config?.HUBSPOT_CLIENT_SECRET || process.env.HUBSPOT_CLIENT_SECRET,
+    hubspotClientId: config?.HUBSPOT_CLIENT_ID || process.env.HUBSPOT_CLIENT_ID,
+    hubspotRedirectUri: config?.HUBSPOT_REDIRECT_URI || process.env.HUBSPOT_REDIRECT_URI,
+    hubspotRefreshToken: config?.HUBSPOT_REFRESH_TOKEN || process.env.HUBSPOT_REFRESH_TOKEN,
     telemetryEnabled: config?.TELEMETRY_ENABLED || process.env.TELEMETRY_ENABLED || "true"
   }
+}
+
+// OAuth helper functions
+interface OAuthTokenResponse {
+  access_token: string
+  refresh_token: string
+  expires_in: number
+  token_type: string
+}
+
+async function exchangeCodeForTokens(
+  clientId: string,
+  clientSecret: string,
+  redirectUri: string,
+  code: string
+): Promise<OAuthTokenResponse> {
+  const response = await fetch('https://api.hubapi.com/oauth/v1/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code',
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
+      code: code,
+    }),
+  })
+
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`OAuth token exchange failed: ${error}`)
+  }
+
+  return await response.json()
+}
+
+async function refreshAccessToken(
+  clientId: string,
+  clientSecret: string,
+  refreshToken: string
+): Promise<OAuthTokenResponse> {
+  const response = await fetch('https://api.hubapi.com/oauth/v1/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+    }),
+  })
+
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`OAuth token refresh failed: ${error}`)
+  }
+
+  return await response.json()
+}
+
+function generateAuthorizationUrl(
+  clientId: string,
+  redirectUri: string,
+  scopes: string[]
+): string {
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    scope: scopes.join(' '),
+  })
+
+  return `https://app.hubspot.com/oauth/authorize?${params.toString()}`
 }
 
 function createServer({ config }: { config?: any } = {}) {
@@ -91,7 +170,14 @@ function createServer({ config }: { config?: any } = {}) {
   }
   const server = new McpServer(serverInfo)
 
-  const { hubspotAccessToken, hubspotClientSecret, telemetryEnabled } = getConfig(config)
+  const {
+    hubspotAccessToken,
+    hubspotClientSecret,
+    hubspotClientId,
+    hubspotRedirectUri,
+    hubspotRefreshToken,
+    telemetryEnabled
+  } = getConfig(config)
 
   if (telemetryEnabled !== "false") {
     const telemetry = instrumentServer(server, {
@@ -100,6 +186,95 @@ function createServer({ config }: { config?: any } = {}) {
       exporterEndpoint: "https://api.otel.shinzo.tech/v1"
     })
   }
+
+  // OAuth Tools
+  server.tool("oauth_get_authorization_url",
+    "Generate OAuth authorization URL for HubSpot. Users should visit this URL to grant permissions. The default redirect URI is http://localhost:3000/oauth/callback",
+    {
+      scopes: z.array(z.string()).optional().describe("OAuth scopes to request (default: crm.objects.contacts.read crm.objects.contacts.write crm.objects.companies.read crm.objects.companies.write)"),
+      redirectUri: z.string().optional().describe("Override the default redirect URI")
+    },
+    async (params) => handleEndpoint(async () => {
+      const clientId = hubspotClientId
+      if (!clientId) {
+        throw new Error("HUBSPOT_CLIENT_ID environment variable is not set. Required for OAuth.")
+      }
+
+      const redirectUri = params.redirectUri || hubspotRedirectUri || "http://localhost:3000/oauth/callback"
+      const scopes = params.scopes || [
+        "crm.objects.contacts.read",
+        "crm.objects.contacts.write",
+        "crm.objects.companies.read",
+        "crm.objects.companies.write",
+        "crm.objects.deals.read",
+        "crm.objects.deals.write"
+      ]
+
+      const authUrl = generateAuthorizationUrl(clientId, redirectUri, scopes)
+
+      return formatResponse({
+        authorization_url: authUrl,
+        instructions: "Visit this URL to authorize the application. After authorization, you'll receive a code parameter in the redirect URL. Use oauth_exchange_code to exchange it for tokens.",
+        redirect_uri: redirectUri
+      })
+    })
+  )
+
+  server.tool("oauth_exchange_code",
+    "Exchange OAuth authorization code for access and refresh tokens",
+    {
+      code: z.string().describe("Authorization code received from the OAuth callback"),
+      redirectUri: z.string().optional().describe("Must match the redirect URI used when generating the authorization URL")
+    },
+    async (params) => handleEndpoint(async () => {
+      const clientId = hubspotClientId
+      const clientSecret = hubspotClientSecret
+
+      if (!clientId || !clientSecret) {
+        throw new Error("HUBSPOT_CLIENT_ID and HUBSPOT_CLIENT_SECRET environment variables are required for OAuth token exchange.")
+      }
+
+      const redirectUri = params.redirectUri || hubspotRedirectUri || "http://localhost:3000/oauth/callback"
+
+      const tokens = await exchangeCodeForTokens(clientId, clientSecret, redirectUri, params.code)
+
+      return formatResponse({
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_in: tokens.expires_in,
+        instructions: "Store these tokens securely. Set HUBSPOT_ACCESS_TOKEN to the access_token value and HUBSPOT_REFRESH_TOKEN to the refresh_token value in your environment variables. Access tokens expire, use oauth_refresh_token when needed."
+      })
+    })
+  )
+
+  server.tool("oauth_refresh_token",
+    "Refresh an expired OAuth access token using a refresh token",
+    {
+      refreshToken: z.string().optional().describe("Refresh token (uses HUBSPOT_REFRESH_TOKEN env var if not provided)")
+    },
+    async (params) => handleEndpoint(async () => {
+      const clientId = hubspotClientId
+      const clientSecret = hubspotClientSecret
+      const refreshToken = params.refreshToken || hubspotRefreshToken
+
+      if (!clientId || !clientSecret) {
+        throw new Error("HUBSPOT_CLIENT_ID and HUBSPOT_CLIENT_SECRET environment variables are required for OAuth token refresh.")
+      }
+
+      if (!refreshToken) {
+        throw new Error("Refresh token is required. Provide it as a parameter or set HUBSPOT_REFRESH_TOKEN environment variable.")
+      }
+
+      const tokens = await refreshAccessToken(clientId, clientSecret, refreshToken)
+
+      return formatResponse({
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_in: tokens.expires_in,
+        instructions: "Update HUBSPOT_ACCESS_TOKEN with the new access_token value. The refresh_token may also be updated."
+      })
+    })
+  )
 
   // Companies: https://developers.hubspot.com/docs/reference/api/crm/objects/companies
 
